@@ -47,12 +47,21 @@
 
 'use strict';
 
-const SerialPort = require('serialport');
+const escpos = require('escpos');
+// install escpos-usb adapter module manually
+escpos.USB = require('escpos-usb');
 const MQTT = require('mqtt');
 const ReadLineItf = require('readline').createInterface;
 
 const setup = require('./setup');
 const mqttClient = MQTT.connect(setup.mqtt);
+const printer = new escpos.Printer(device, options);
+const device  = new escpos.USB();
+const options = { encoding: "GB18030" /* default */ }
+
+// const device  = new escpos.Serial('/dev/usb/lp0');
+
+
 /*
  * Common port list:
  * /dev/tty.usbserial-A9007UX1 ---> Mac OS X
@@ -78,9 +87,33 @@ mqttClient.on('connect', function () {
 });
 
 mqttClient.on('message', function (topic, message) {
-    let value = String.fromCharCode([11]) + message.toString();
+   /* let value = String.fromCharCode([11]) + message.toString();
     value = decodeURI(value);
     console.log('[' + value + '] --> in');
-    serial.write(value + '\n');
+    serial.write(value + '\n');*/
+    
+device.open(function(error){
+    printer
+    .font('a')
+    .align('ct')
+    .style('bu')
+    .size(1, 1)
+    .text('The quick brown fox jumps over the lazy dog')
+    .text('敏捷的棕色狐狸跳过懒狗')
+    .barcode('1234567', 'EAN8')
+    .table(["One", "Two", "Three"])
+    .tableCustom(
+      [
+        { text:"Left", align:"LEFT", width:0.33, style: 'B' },
+        { text:"Center", align:"CENTER", width:0.33},
+        { text:"Right", align:"RIGHT", width:0.33 }
+      ],
+      { encoding: 'cp857', size: [1, 1] } // Optional
+    )
+    .qrimage('https://github.com/song940/node-escpos', function(err){
+      this.cut();
+      this.close();
+    });
+  });
 });
 // -------
