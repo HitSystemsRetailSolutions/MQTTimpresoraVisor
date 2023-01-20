@@ -60,39 +60,50 @@ const mqttClient = MQTT.connect(setup.mqtt);
  * /dev/ttyUSB0 ---> Linux (Ubuntu)
  * COM3 ---> Windows
  */
-let serial = new SerialPort(setup.port, {baudRate: setup.rate});
-let serialReader = ReadLineItf({
+const serial = new SerialPort(setup.port, {baudRate: setup.rate});
+const serialReader = ReadLineItf({
     input: serial
 });
+const serialVisor = new SerialPort(setup.portVisor, {baudRate: setup.rateVisor});
+const serialReaderVisor = ReadLineItf({
+    input: serialVisor
+});
 
+console.log("CONNECTED")
 // Serial listener (serial --> MQTT)
 serialReader.on('line', function (value) {
     console.log('out --> [' + value + ']');
     mqttClient.publish(setup.tout, value, {qos: setup.qos}); // MQTT pub
 });
+serialReaderVisor.on('line', function (value) {
+    console.log('out --> [' + value + ']');
+    mqttClient.publish(setup.tout, value, {qos: setup.qos}); // MQTT pub
+});
+
 // -------
 
 // MQTT subscriber (MQTT --> serial)
 mqttClient.on('connect', function () {
     mqttClient.subscribe(setup.tin); // MQTT sub
+   mqttClient.subscribe(setup.tinVisor); // MQTT sub
 });
 
 function Impresora(msg){
-    serial = new SerialPort(setup.port, {baudRate: setup.rate});
-    let value = decodeURI(msg);
+   console.log("paso x aqui")
+    let value = decodeURI(msg)
     console.log('[' + value + '] --> in');
     serial.write(value);
 }
 
 function Visor(msg){
-    serial = new SerialPort(setup.portVisor, {baudRate: setup.rateVisor});
     console.log('[' + msg + '] --> in');
-    serial.write(msg);
+    serialVisor.write(msg);
 }
 
 mqttClient.on('message', function (topic, message) {
     if(topic == "hit.hardware/printer"){
-        Impresora(message);
+      console.log("si")  
+      Impresora(message);
     }else if (topic == "hit.hardware/visor"){
         Visor(message);
     }

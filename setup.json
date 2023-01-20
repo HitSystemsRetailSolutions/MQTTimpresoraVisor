@@ -1,10 +1,11 @@
 {
     "port": "/dev/ttyS0",
-    "portVisor": "/dev/ttyS0",
-    "rate": 9600,
+    "portVisor": "/dev/ttyUSB0",
+    "rate": 115200,
     "rateVisor": 9600,
     "mqtt": "mqtt://127.0.0.1:1883",
     "tout": "robot/out",
     "tin": "hit.hardware/printer",
+    "tinVisor": "hit.hardware/visor",
     "qos": 2
 }
