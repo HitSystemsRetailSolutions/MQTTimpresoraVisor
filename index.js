@@ -52,7 +52,6 @@ const MQTT = require('mqtt');
 const ReadLineItf = require('readline').createInterface;
 
 const setup = require('./setup');
-const setupVisor = require('./setupVisor');
 const mqttClient = MQTT.connect(setup.mqtt);
 /*
  * Common port list:
@@ -80,11 +79,15 @@ mqttClient.on('connect', function () {
 
 function Impresora(msg){
     serial = new SerialPort(setup.port, {baudRate: setup.rate});
-    
+    let value = decodeURI(msg);
+    console.log('[' + value + '] --> in');
+    serial.write(value);
 }
 
 function Visor(msg){
-    serial = new SerialPort(setupVisor.port, {baudRate: setupVisor.rate});
+    serial = new SerialPort(setup.portVisor, {baudRate: setup.rateVisor});
+    console.log('[' + msg + '] --> in');
+    serial.write(msg);
 }
 
 mqttClient.on('message', function (topic, message) {
@@ -93,8 +96,6 @@ mqttClient.on('message', function (topic, message) {
     }else if (topic == "hit.hardware/visor"){
         Visor(message);
     }
-    let value = decodeURI(message);
-    console.log('[' + value + '] --> in');
-    serial.write(value);
+
 });
 // -------
