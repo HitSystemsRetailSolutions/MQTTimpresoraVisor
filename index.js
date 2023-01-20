@@ -52,6 +52,7 @@ const MQTT = require('mqtt');
 const ReadLineItf = require('readline').createInterface;
 
 const setup = require('./setup');
+const setupVisor = require('./setupVisor');
 const mqttClient = MQTT.connect(setup.mqtt);
 /*
  * Common port list:
@@ -60,8 +61,8 @@ const mqttClient = MQTT.connect(setup.mqtt);
  * /dev/ttyUSB0 ---> Linux (Ubuntu)
  * COM3 ---> Windows
  */
-const serial = new SerialPort(setup.port, {baudRate: setup.rate});
-const serialReader = ReadLineItf({
+let serial = new SerialPort(setup.port, {baudRate: setup.rate});
+let serialReader = ReadLineItf({
     input: serial
 });
 
@@ -77,7 +78,21 @@ mqttClient.on('connect', function () {
     mqttClient.subscribe(setup.tin); // MQTT sub
 });
 
+function Impresora(msg){
+    serial = new SerialPort(setup.port, {baudRate: setup.rate});
+    
+}
+
+function Visor(msg){
+    serial = new SerialPort(setupVisor.port, {baudRate: setupVisor.rate});
+}
+
 mqttClient.on('message', function (topic, message) {
+    if(topic == "hit.hardware/printer"){
+        Impresora(message);
+    }else if (topic == "hit.hardware/visor"){
+        Visor(message);
+    }
     let value = decodeURI(message);
     console.log('[' + value + '] --> in');
     serial.write(value);
