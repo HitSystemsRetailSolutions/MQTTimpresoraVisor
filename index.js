@@ -90,7 +90,7 @@ mqttClient.on('connect', function () {
 
 function Impresora(msg){
    console.log("paso x aqui")
-    let value = decodeURI(msg)
+    let value = msg
     console.log('[' + value + '] --> in');
     serial.write(value);
 }
