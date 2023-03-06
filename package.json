@@ -35,6 +35,8 @@
     "escpos": "^3.0.0-alpha.6",
     "escpos-usb": "^3.0.0-alpha.4",
     "mqtt": "^3.0.0",
-    "serialport": "8.0.7"
+    "serialport": "8.0.7",
+    "usb": "^1.9.2",
+    "usb-detection": "^4.14.1"
   }
 }
