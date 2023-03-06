@@ -10,9 +10,11 @@ usbDetect.startMonitoring();
 let USBdevice = undefined
 let serialReader = undefined
 let serialReaderVisor = undefined
-
+let serialVisor = undefined
+let serial = undefined
+/*
 try{
-    const serial = new SerialPort(setup.port, {baudRate: setup.rate});
+    serial = new SerialPort(setup.port, {baudRate: setup.rate});
     serialReader = ReadLineItf({
         input: serial
     });
@@ -21,27 +23,26 @@ try{
 }
 
 try{
-    const serialVisor = new SerialPort(setup.portVisor, {baudRate: setup.rateVisor});
+    serialVisor = new SerialPort(setup.portVisor, {baudRate: setup.rateVisor});
     serialReaderVisor = ReadLineItf({
         input: serialVisor
     });
 }catch(err){
     console.log("Error al cargar el visor serie")
 }
-
+*/
 function SetUSBConection(USBInfo){
     console.log(USBInfo.vendorId, USBInfo.productId)
     USBdevice = new escpos.USB(USBInfo.vendorId, USBInfo.productId);    
-    return USBdevice
 }
 try{
-    usbDetect.find(function(err, devices) { USBdevice = SetUSBConection(devices.find(element => element > "HPRT")); }); 
+    usbDetect.find(function(err, devices) { SetUSBConection(devices.find(element => element > "HPRT")); }); 
 }catch(err){
     console.log("Error al cargar la impresora usb")
 }
 
 console.log("MQTT CONNECTED")
-
+/*
 serialReader.on('line', function (value) {
     console.log('out --> [' + value + ']');
     mqttClient.publish(setup.tout, value, {qos: setup.qos}); // MQTT pub
@@ -51,7 +52,7 @@ serialReaderVisor.on('line', function (value) {
     mqttClient.publish(setup.tout, value, {qos: setup.qos}); // MQTT pub
 });
 
-
+*/
 // MQTT subscriber (MQTT --> serial)
 mqttClient.on('connect', function () {
     mqttClient.subscribe(setup.tin); // MQTT sub
@@ -62,9 +63,11 @@ function Impresora(msg){
     let value = msg
     console.log('[' + value + '] --> in');
     //serial.write(value);
+    const options = {encoding: 'GB18030'};
     const printer = new escpos.Printer(USBdevice, options);
+    USBdevice.write(msg)
     USBdevice.open(function() {
-        printer.write(msg)
+        printer.model(msg)
       });
 }
 
