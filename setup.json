@@ -7,5 +7,6 @@
     "tout": "robot/out",
     "tin": "hit.hardware/printer",
     "tinVisor": "hit.hardware/visor",
-    "qos": 2
+    "qos": 2,
+    "nomImpresora": ["HPRT"]
 }

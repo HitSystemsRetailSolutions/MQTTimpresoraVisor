@@ -31,7 +31,7 @@ try{
 
 function SetUSBConection(USBInfo){
     console.log(USBInfo.vendorId, USBInfo.productId)
-    USBdevice = new escpos.Printer(device, options);
+    USBdevice = new escpos.USB(USBInfo.vendorId, USBInfo.productId);    
     return USBdevice
 }
 try{
