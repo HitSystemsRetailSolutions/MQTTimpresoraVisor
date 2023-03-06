@@ -32,11 +32,16 @@ try{
 }
 */
 function SetUSBConection(USBInfo){
-    console.log(USBInfo.vendorId, USBInfo.productId)
+    console.log(USBInfo)
     USBdevice = new escpos.USB(USBInfo.vendorId, USBInfo.productId);    
 }
 try{
-    usbDetect.find(function(err, devices) { SetUSBConection(devices.find(element => element > "HPRT")); }); 
+    usbDetect.find(function(err, devices) { 
+        devices.forEach(element => {
+            if(element.manufacturer == "HPRT")
+            SetUSBConection(element); 
+        });
+    }); 
 }catch(err){
     console.log("Error al cargar la impresora usb")
 }
