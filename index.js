@@ -1,76 +1,51 @@
-/*
- * MIT License
- * 
- * Copyright (c) 2018 Fabvalaaah - fabvalaaah@laposte.net
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- * 
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- * 
- * DONATION:
- * As I share these sources for commercial use too, maybe you could consider
- * sending me a reward (even a tiny one) to my Ethereum wallet at the address
- * 0x1fEaa1E88203cc13ffE9BAe434385350bBf10868
- * If so, I would be forever grateful to you and motivated to keep up the good
- * work for sure :oD Thanks in advance !
- * 
- * FEEDBACK:
- * You like my work? It helps you? You plan to use/reuse/transform it? You have
- * suggestions or questions about it? Just want to say "hi"? Let me know your
- * feedbacks by mail to the address fabvalaaah@laposte.net
- * 
- * DISCLAIMER:
- * I am not responsible in any way of any consequence of the usage
- * of this piece of software. You are warned, use it at your own risks.
- */
-
-/* 
- * File:   index.js
- * Author: Fabvalaaah
- *
- * 02/20/2018
- */
-
-'use strict';
-
 const SerialPort = require('serialport');
+const escpos = require('escpos');
+escpos.USB = require('escpos-usb');
 const MQTT = require('mqtt');
 const ReadLineItf = require('readline').createInterface;
-
 const setup = require('./setup');
 const mqttClient = MQTT.connect(setup.mqtt);
+let serialReader = undefined
+let serialReaderVisor = undefined
+let serialVisor = undefined
+let serial = undefined
 /*
- * Common port list:
- * /dev/tty.usbserial-A9007UX1 ---> Mac OS X
- * /dev/ttyACM0 ---> Linux (Raspberry Pi)
- * /dev/ttyUSB0 ---> Linux (Ubuntu)
- * COM3 ---> Windows
- */
-const serial = new SerialPort(setup.port, {baudRate: setup.rate});
-const serialReader = ReadLineItf({
-    input: serial
-});
-const serialVisor = new SerialPort(setup.portVisor, {baudRate: setup.rateVisor});
-const serialReaderVisor = ReadLineItf({
-    input: serialVisor
-});
+try{
+    serial = new SerialPort(setup.port, {baudRate: setup.rate});
+    serialReader = ReadLineItf({
+        input: serial
+    });
+}catch(err){
+    console.log("Error al cargar la impresora serie")
+}
 
-console.log("CONNECTED")
-// Serial listener (serial --> MQTT)
+try{
+    serialVisor = new SerialPort(setup.portVisor, {baudRate: setup.rateVisor});
+    serialReaderVisor = ReadLineItf        input: serialVisor
+    });
+}catch(err){
+    console.log("Error al cargar el visor serie")
+}
+*/
+var devices = escpos.USB.findPrinter();
+
+devices.forEach(function(el) { 
+    let device = new escpos.USB(el)
+    const printer = new escpos.Printer(device);
+    device.open(function(){
+        printer
+        .font('a')
+        .align('ct')
+        .style('bu')
+        .size(1, 1)
+        .text('The quick brown fox jumps over the lazy dog')
+        .cut()
+        .close()
+    });
+})
+
+console.log("MQTT CONNECTED")
+/*
 serialReader.on('line', function (value) {
     console.log('out --> [' + value + ']');
     mqttClient.publish(setup.tout, value, {qos: setup.qos}); // MQTT pub
@@ -80,21 +55,28 @@ serialReaderVisor.on('line', function (value) {
     mqttClient.publish(setup.tout, value, {qos: setup.qos}); // MQTT pub
 });
 
-// -------
-
+*/
 // MQTT subscriber (MQTT --> serial)
 mqttClient.on('connect', function () {
     mqttClient.subscribe(setup.tin); // MQTT sub
-   mqttClient.subscribe(setup.tinVisor); // MQTT sub
+    mqttClient.subscribe(setup.tinVisor); // MQTT sub
 });
 
 function Impresora(msg){
-   console.log("paso x aqui")
     let value = msg
-    console.log('[' + value + '] --> in');
-    serial.write(value);
-}
+    console.log("entro");
+    //serial.write(value);
+var devices = escpos.USB.findPrinter();
 
+devices.forEach(function(el) { 
+    let device = new escpos.USB(el)
+    const printer = new escpos.Printer(device);
+    device.open(function(){
+        printer
+        .pureText(Buffer.from(msg,'hex')).close();
+    });
+})
+}
 function Visor(msg){
     console.log('[' + msg + '] --> in');
     serialVisor.write(msg);
