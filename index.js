@@ -1,3 +1,4 @@
+
 const SerialPort = require("serialport");
 const escpos = require("escpos");
 escpos.USB = require("escpos-usb");
