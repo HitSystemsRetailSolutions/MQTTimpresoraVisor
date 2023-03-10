@@ -8,5 +8,7 @@
     "tin": "hit.hardware/printer",
     "tinVisor": "hit.hardware/visor",
     "qos": 2,
-    "nomImpresora": ["HPRT"]
+    "nomImpresora": ["HPRT"],
+    "isUsbPrinter": true,
+    "testUsbImpresora": true
 }
