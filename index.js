@@ -11,7 +11,7 @@ let serialReaderVisor = undefined;
 let serialVisor = undefined;
 let serial = undefined;
 
-if (setup.isUsbPrinter) {
+if (!setup.isUsbPrinter) {
   try {
     serial = new SerialPort(setup.port, { baudRate: setup.rate });
     serialReader = ReadLineItf({
