@@ -10,5 +10,6 @@
     "qos": 2,
     "nomImpresora": ["HPRT"],
     "isUsbPrinter": true,
-    "testUsbImpresora": true
+    "testUsbImpresora": true,
+    "ShowMessageLog":false
 }

@@ -10,25 +10,34 @@ let serialReaderVisor = undefined;
 let serialVisor = undefined;
 let serial = undefined;
 
-try {
-  serial = new SerialPort(setup.port, { baudRate: setup.rate });
-  serialReader = ReadLineItf({
-    input: serial,
-  });
-} catch (err) {
-  console.log("Error al cargar la impresora serie");
+if (setup.isUsbPrinter) {
+  try {
+    serial = new SerialPort(setup.port, { baudRate: setup.rate });
+    serialReader = ReadLineItf({
+      input: serial,
+    });
+    serialReader.on("line", function (value) {
+      console.log("out --> [" + value + "]");
+      mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
+    });
+  } catch (err) {
+    console.log("Error al cargar la impresora serie");
+  }
 }
 
 try {
   serialVisor = new SerialPort(setup.portVisor, { baudRate: setup.rateVisor });
   serialReaderVisor = ReadLineItf({ serialVisor });
+  serialReaderVisor.on("line", function (value) {
+    console.log("out --> [" + value + "]");
+    mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
+  });
 } catch (err) {
   console.log("Error al cargar el visor serie");
 }
 
 if (setup.testUsbImpresora) {
   var devices = escpos.USB.findPrinter();
-
   devices.forEach(function (el) {
     let device = new escpos.USB(el);
     const printer = new escpos.Printer(device);
@@ -44,16 +53,6 @@ if (setup.testUsbImpresora) {
     });
   });
 }
-console.log("MQTT CONNECTED");
-
-serialReader.on("line", function (value) {
-  console.log("out --> [" + value + "]");
-  mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
-});
-serialReaderVisor.on("line", function (value) {
-  console.log("out --> [" + value + "]");
-  mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
-});
 
 // MQTT subscriber (MQTT --> serial)
 mqttClient.on("connect", function () {
@@ -62,7 +61,6 @@ mqttClient.on("connect", function () {
 });
 
 function ImpresoraUSB(msg) {
-  let value = msg;
   var devices = escpos.USB.findPrinter();
 
   devices.forEach(function (el) {
@@ -75,24 +73,28 @@ function ImpresoraUSB(msg) {
 }
 
 function ImpresoraSerial(msg) {
-  let value = msg;
-  console.log("entro");
-  serial.write(value);
+  serial.write(msg);
 }
 
 function Visor(msg) {
-  console.log("[" + msg + "] --> in");
   serialVisor.write(msg);
 }
 
 mqttClient.on("message", function (topic, message) {
-  if (topic == "hit.hardware/printer") {
-    if (setup.isUsbPrinter) {
-      ImpresoraUSB(message);
-      return;
+  try {
+    if (setup.ShowMessageLog) console.log(message);
+    if (topic == "hit.hardware/printer") {
+      if (setup.isUsbPrinter) {
+        ImpresoraUSB(message);
+        return;
+      }
+      ImpresoraSerial(message);
+    } else if (topic == "hit.hardware/visor") {
+      Visor(message);
     }
-    ImpresoraSerial(message);
-  } else if (topic == "hit.hardware/visor") {
-    Visor(message);
+  } catch (e) {
+    console.log("Error en MQTT: \n" + e);
   }
 });
+
+console.log("MQTT CONNECTED");
