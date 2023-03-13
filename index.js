@@ -68,7 +68,11 @@ function ImpresoraUSB(msg) {
     let device = new escpos.USB(el);
     const printer = new escpos.Printer(device);
     device.open(function () {
-      printer.encode("CP858").pureText(Buffer.from(msg, 'hex')).close();
+      printer
+      .setCharacterCodeTable(19)
+      .encode("CP858")
+      .pureText(msg)
+      .close();
     });
   });
 }
