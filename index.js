@@ -2,7 +2,6 @@
 const SerialPort = require("serialport");
 const escpos = require("escpos");
 escpos.USB = require("escpos-usb");
-escpos.Serial = require("escpos-serialport")
 const MQTT = require("mqtt");
 const ReadLineItf = require("readline").createInterface;
 const setup = require("./setup");
@@ -14,9 +13,9 @@ let impresoraSerial = undefined;
 
 if (!setup.isUsbPrinter) {
   try {
-    impresoraSerial = new escpos.Serial(setup.port, { baudRate: setup.rate });
+    impresoraSerial = new SerialPort(setup.port, { baudRate: setup.rate });
     impresoraSerialReader = ReadLineItf({
-      input: serial,
+      input: impresoraSerial,
     });
     impresoraSerialReader.on("line", function (value) {
       console.log("out --> [" + value + "]");
