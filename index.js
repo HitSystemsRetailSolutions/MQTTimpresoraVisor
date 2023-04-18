@@ -6,18 +6,18 @@ const MQTT = require("mqtt");
 const ReadLineItf = require("readline").createInterface;
 const setup = require("./setup");
 const mqttClient = MQTT.connect(setup.mqtt);
-let serialReader = undefined;
+let impresoraSerialReader = undefined;
 let serialReaderVisor = undefined;
 let serialVisor = undefined;
-let serial = undefined;
+let impresoraSerial = undefined;
 
 if (!setup.isUsbPrinter) {
   try {
-    serial = new SerialPort(setup.port, { baudRate: setup.rate });
-    serialReader = ReadLineItf({
-      input: serial,
+    impresoraSerial = new SerialPort(setup.port, { baudRate: setup.rate });
+    impresoraSerialReader = ReadLineItf({
+      input: impresoraSerial,
     });
-    serialReader.on("line", function (value) {
+    impresoraSerialReader.on("line", function (value) {
       console.log("out --> [" + value + "]");
       mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
     });
@@ -26,6 +26,7 @@ if (!setup.isUsbPrinter) {
   }
 }
 
+if (setup.visor) {
 try {
   serialVisor = new SerialPort(setup.portVisor, { baudRate: setup.rateVisor });
   serialReaderVisor = ReadLineItf({ serialVisor });
@@ -36,11 +37,12 @@ try {
 } catch (err) {
   console.log("Error al cargar el visor serie");
 }
-
+}
 if (setup.testUsbImpresora) {
   var devices = escpos.USB.findPrinter();
   devices.forEach(function (el) {
     let device = new escpos.USB(el);
+    if(setup.vId_pId[0] != 0 && setup.vId_pId[1] != 0) device = new escpos.USB(setup.vId_pId[0],setup.vId_pId[1]);
     const printer = new escpos.Printer(device);
     device.open(function () {
       printer
@@ -63,9 +65,9 @@ mqttClient.on("connect", function () {
 
 function ImpresoraUSB(msg) {
   var devices = escpos.USB.findPrinter();
-
   devices.forEach(function (el) {
     let device = new escpos.USB(el);
+    if(setup.vId_pId[0] != 0 && setup.vId_pId[1] != 0) device = new escpos.USB(setup.vId_pId[0],setup.vId_pId[1]);
     const printer = new escpos.Printer(device);
     device.open(function () {
       printer
@@ -78,7 +80,7 @@ function ImpresoraUSB(msg) {
 }
 
 function ImpresoraSerial(msg) {
-  serial.write(msg);
+  impresoraSerial.write(msg);
 }
 
 function Visor(msg) {

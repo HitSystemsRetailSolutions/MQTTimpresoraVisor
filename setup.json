@@ -8,7 +8,9 @@
     "tin": "hit.hardware/printer",
     "tinVisor": "hit.hardware/visor",
     "qos": 2,
+    "visor": false,
     "isUsbPrinter": true,
+    "vId_pId": [0,0],
     "testUsbImpresora": true,
     "ShowMessageLog":false
 }
