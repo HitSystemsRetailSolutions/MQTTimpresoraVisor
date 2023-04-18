@@ -42,6 +42,7 @@ if (setup.testUsbImpresora) {
   var devices = escpos.USB.findPrinter();
   devices.forEach(function (el) {
     let device = new escpos.USB(el);
+    if(setup.vId_pId[0] != 0 && setup.vId_pId[1] != 0) device = new escpos.USB(setup.vId_pId[0],setup.vId_pId[1]);
     const printer = new escpos.Printer(device);
     device.open(function () {
       printer
@@ -64,9 +65,9 @@ mqttClient.on("connect", function () {
 
 function ImpresoraUSB(msg) {
   var devices = escpos.USB.findPrinter();
-
   devices.forEach(function (el) {
     let device = new escpos.USB(el);
+    if(setup.vId_pId[0] != 0 && setup.vId_pId[1] != 0) device = new escpos.USB(setup.vId_pId[0],setup.vId_pId[1]);
     const printer = new escpos.Printer(device);
     device.open(function () {
       printer
