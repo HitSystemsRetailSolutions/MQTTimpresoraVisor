@@ -41,7 +41,7 @@ if (setup.visor) {
 }
 if (setup.testUsbImpresora) {
   var devices = escpos.USB.findPrinter();
-  if (useVidPid) {
+  if (setup.useVidPid) {
     let device = new escpos.USB(setup.vId, setup.pId);
     const printer = new escpos.Printer(device);
     device.open(function () {
@@ -54,22 +54,22 @@ if (setup.testUsbImpresora) {
         .cut()
         .close();
     });
-    return;
-  }
-  devices.forEach(function (el) {
-    let device = new escpos.USB(el);
-    const printer = new escpos.Printer(device);
-    device.open(function () {
-      printer
-        .font("a")
-        .align("ct")
-        .style("bu")
-        .size(1, 1)
-        .text("Impresora USB conectada")
-        .cut()
-        .close();
+  } else {
+    devices.forEach(function (el) {
+      let device = new escpos.USB(el);
+      const printer = new escpos.Printer(device);
+      device.open(function () {
+        printer
+          .font("a")
+          .align("ct")
+          .style("bu")
+          .size(1, 1)
+          .text("Impresora USB conectada")
+          .cut()
+          .close();
+      });
     });
-  });
+  }
 }
 
 // MQTT subscriber (MQTT --> serial)
@@ -79,8 +79,7 @@ mqttClient.on("connect", function () {
 });
 
 function ImpresoraUSB(msg) {
-  var devices = escpos.USB.findPrinter();
-  if (useVidPid) {
+  if (setup.useVidPid) {
     let device = new escpos.USB(setup.vId, setup.pId);
     const printer = new escpos.Printer(device);
     device.open(function () {
@@ -93,22 +92,16 @@ function ImpresoraUSB(msg) {
         .cut()
         .close();
     });
-    return;
-  }
-  devices.forEach(function (el) {
-    let device = new escpos.USB(el);
-    const printer = new escpos.Printer(device);
-    device.open(function () {
-      printer
-        .font("a")
-        .align("ct")
-        .style("bu")
-        .size(1, 1)
-        .text("Impresora USB conectada")
-        .cut()
-        .close();
+  } else {
+    var devices = escpos.USB.findPrinter();
+    devices.forEach(function (el) {
+      let device = new escpos.USB(el);
+      const printer = new escpos.Printer(device);
+      device.open(function () {
+        printer.setCharacterCodeTable(19).encode("CP858").pureText(msg).close();
+      });
     });
-  });
+  }
 }
 
 function ImpresoraSerial(msg) {
