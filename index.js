@@ -83,14 +83,7 @@ function ImpresoraUSB(msg) {
     let device = new escpos.USB(setup.vId, setup.pId);
     const printer = new escpos.Printer(device);
     device.open(function () {
-      printer
-        .font("a")
-        .align("ct")
-        .style("bu")
-        .size(1, 1)
-        .text("Impresora USB conectada")
-        .cut()
-        .close();
+      printer.setCharacterCodeTable(19).encode("CP858").pureText(msg).close();
     });
   } else {
     var devices = escpos.USB.findPrinter();
