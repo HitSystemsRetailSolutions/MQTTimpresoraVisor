@@ -1,4 +1,3 @@
-
 const SerialPort = require("serialport");
 const escpos = require("escpos");
 escpos.USB = require("escpos-usb");
@@ -27,22 +26,38 @@ if (!setup.isUsbPrinter) {
 }
 
 if (setup.visor) {
-try {
-  serialVisor = new SerialPort(setup.portVisor, { baudRate: setup.rateVisor });
-  serialReaderVisor = ReadLineItf({ serialVisor });
-  serialReaderVisor.on("line", function (value) {
-    console.log("out --> [" + value + "]");
-    mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
-  });
-} catch (err) {
-  console.log("Error al cargar el visor serie");
-}
+  try {
+    serialVisor = new SerialPort(setup.portVisor, {
+      baudRate: setup.rateVisor,
+    });
+    serialReaderVisor = ReadLineItf({ serialVisor });
+    serialReaderVisor.on("line", function (value) {
+      console.log("out --> [" + value + "]");
+      mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
+    });
+  } catch (err) {
+    console.log("Error al cargar el visor serie");
+  }
 }
 if (setup.testUsbImpresora) {
   var devices = escpos.USB.findPrinter();
+  if (useVidPid) {
+    let device = new escpos.USB(setup.vId, setup.pId);
+    const printer = new escpos.Printer(device);
+    device.open(function () {
+      printer
+        .font("a")
+        .align("ct")
+        .style("bu")
+        .size(1, 1)
+        .text("Impresora USB conectada")
+        .cut()
+        .close();
+    });
+    return;
+  }
   devices.forEach(function (el) {
     let device = new escpos.USB(el);
-    if(setup.vId_pId[0] != 0 && setup.vId_pId[1] != 0) device = new escpos.USB(setup.vId_pId[0],setup.vId_pId[1]);
     const printer = new escpos.Printer(device);
     device.open(function () {
       printer
@@ -65,16 +80,33 @@ mqttClient.on("connect", function () {
 
 function ImpresoraUSB(msg) {
   var devices = escpos.USB.findPrinter();
-  devices.forEach(function (el) {
-    let device = new escpos.USB(el);
-    if(setup.vId_pId[0] != 0 && setup.vId_pId[1] != 0) device = new escpos.USB(setup.vId_pId[0],setup.vId_pId[1]);
+  if (useVidPid) {
+    let device = new escpos.USB(setup.vId, setup.pId);
     const printer = new escpos.Printer(device);
     device.open(function () {
       printer
-      .setCharacterCodeTable(19)
-      .encode("CP858")
-      .pureText(msg)
-      .close();
+        .font("a")
+        .align("ct")
+        .style("bu")
+        .size(1, 1)
+        .text("Impresora USB conectada")
+        .cut()
+        .close();
+    });
+    return;
+  }
+  devices.forEach(function (el) {
+    let device = new escpos.USB(el);
+    const printer = new escpos.Printer(device);
+    device.open(function () {
+      printer
+        .font("a")
+        .align("ct")
+        .style("bu")
+        .size(1, 1)
+        .text("Impresora USB conectada")
+        .cut()
+        .close();
     });
   });
 }
