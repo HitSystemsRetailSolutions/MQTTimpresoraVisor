@@ -1,5 +1,5 @@
 {
-    "port": "/dev/ttyS0",
+    "port": "COM1",
     "portVisor": "/dev/ttyUSB0",
     "rate": 115200,
     "rateVisor": 9600,
@@ -10,9 +10,11 @@
     "qos": 2,
     "visor": false,
     "isUsbPrinter": true,
-    "useVidPid": false,
+    "useVidPid": true,
     "vId": "0x000",
     "pId": "0x000",
-    "testUsbImpresora": true,
-    "ShowMessageLog":false
+    "testUsbImpresora": false,
+    "ShowMessageLog":false,
+    "logo": "./logo.png",
+    "imprimirLogo": true
 }
