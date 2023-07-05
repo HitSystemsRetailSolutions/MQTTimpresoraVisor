@@ -5,25 +5,9 @@ const MQTT = require("mqtt");
 const ReadLineItf = require("readline").createInterface;
 const setup = require("./setup");
 const mqttClient = MQTT.connect(setup.mqtt);
-let impresoraSerialReader = undefined;
 let serialReaderVisor = undefined;
 let serialVisor = undefined;
-let impresoraSerial = undefined;
-
-if (!setup.isUsbPrinter) {
-  try {
-    impresoraSerial = new SerialPort(setup.port, { baudRate: setup.rate });
-    impresoraSerialReader = ReadLineItf({
-      input: impresoraSerial,
-    });
-    impresoraSerialReader.on("line", function (value) {
-      console.log("out --> [" + value + "]");
-      mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
-    });
-  } catch (err) {
-    console.log("Error al cargar la impresora serie");
-  }
-}
+escpos.Serial = require('escpos-serialport');
 
 if (setup.visor) {
   try {
@@ -112,7 +96,9 @@ function ImpresoraUSB(msg) {
 }
 
 function ImpresoraSerial(msg) {
-  const serialDevice = new escpos.Serial(setup.port);
+  const serialDevice = new escpos.Serial(setup.port, {
+    baudRate: setup.rate,
+  });
   imprimir(msg, serialDevice);
 }
 
