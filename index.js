@@ -39,7 +39,6 @@ if (setup.visor) {
     console.log("Error al cargar el visor serie");
   }
 }
-
 if (setup.testUsbImpresora) {
   var devices = escpos.USB.findPrinter();
   if (setup.useVidPid) {
@@ -78,42 +77,28 @@ mqttClient.on("connect", function () {
   mqttClient.subscribe(setup.tin); // MQTT sub
   mqttClient.subscribe(setup.tinVisor); // MQTT sub
 });
-// funciopn que recibe el mensaje y lo imprime
-function imprimir(msg, device) {
-  const logo = setup.logo;
-  const printer = new escpos.Printer(device);
-  escpos.Image.load(logo, function (image) {
-    device.open(function () {
-      printer
-        .setCharacterCodeTable(19)
-        .encode("CP858")
-        .align("ct")
-        if(setup.imprimirLogo){
-          printer.raster(image)
-        }
-        printer.pureText(msg)
-        .cut("PAPER_FULL_CUT")
-        .close();
-    });
-  });
-}
-// si la impresora es usb
+
 function ImpresoraUSB(msg) {
   if (setup.useVidPid) {
-    const device = new escpos.USB(setup.vId, setup.pId);
-    imprimir(msg, device);
+    let device = new escpos.USB(setup.vId, setup.pId);
+    const printer = new escpos.Printer(device);
+    device.open(function () {
+      printer.setCharacterCodeTable(19).encode("CP858").pureText(msg).close();
+    });
   } else {
-    const devices = escpos.USB.findPrinter();
+    var devices = escpos.USB.findPrinter();
     devices.forEach(function (el) {
-      const device = new escpos.USB(el);
-      imprimir(msg, device);
+      let device = new escpos.USB(el);
+      const printer = new escpos.Printer(device);
+      device.open(function () {
+        printer.setCharacterCodeTable(19).encode("CP858").pureText(msg).close();
+      });
     });
   }
 }
 
 function ImpresoraSerial(msg) {
-  const serialDevice = new escpos.Serial(setup.port);
-  imprimir(msg, serialDevice);
+  impresoraSerial.write(msg);
 }
 
 function Visor(msg) {
@@ -124,9 +109,11 @@ mqttClient.on("message", function (topic, message) {
   try {
     if (setup.ShowMessageLog) console.log(message);
     if (topic == "hit.hardware/printer") {
-      setup.isUsbPrinter
-        ? ImpresoraUSB(message)
-        : ImpresoraSerial(message)
+      if (setup.isUsbPrinter) {
+        ImpresoraUSB(message);
+        return;
+      }
+      ImpresoraSerial(message);
     } else if (topic == "hit.hardware/visor") {
       Visor(message);
     }
