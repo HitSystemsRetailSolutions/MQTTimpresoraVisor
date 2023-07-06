@@ -65,20 +65,24 @@ mqttClient.on("connect", function () {
 // funciopn que recibe el mensaje y lo imprime
 function imprimir(msg, device) {
   const logo = setup.logo;
+  const encode = "cp858"
   const printer = new escpos.Printer(device);
   escpos.Image.load(logo, function (image) {
-    device.open(function () {
-      printer
-        .setCharacterCodeTable(19)
-        .encode("CP858")
-        .align("ct")
-        if(setup.imprimirLogo){
-          printer.raster(image)
-        }
-        printer.pureText(msg)
-        .cut("PAPER_FULL_CUT")
-        .close();
-    });
+
+      device.open(function () {
+        printer
+          .model("TP809")
+          .font("A")
+          .setCharacterCodeTable(19)
+          .encode(encode)
+          .align("ct")
+          if(setup.imprimirLogo){
+            printer.raster(image)
+          }
+          printer.text(msg)
+          .cut("PAPER_FULL_CUT")
+          .close();
+      });
   });
 }
 // si la impresora es usb
