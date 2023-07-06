@@ -63,10 +63,17 @@ mqttClient.on("connect", function () {
   mqttClient.subscribe(setup.tinVisor); // MQTT sub
 });
 // funciopn que recibe el mensaje y lo imprime
-function imprimir(msg, device) {
+function imprimir(msg, device, options) {
   const logo = setup.logo;
   const encode = "cp858"
   const printer = new escpos.Printer(device);
+  if(options && options.abrirCajon){
+    device.open(function () {
+      printer
+        .pureText(msg)
+        .close();
+    });
+  }
   escpos.Image.load(logo, function (image) {
 
       device.open(function () {
@@ -86,7 +93,8 @@ function imprimir(msg, device) {
   });
 }
 // si la impresora es usb
-function ImpresoraUSB(msg) {
+function ImpresoraUSB(msg, options) {
+  console.log('hola');
   if (setup.useVidPid) {
     const device = new escpos.USB(setup.vId, setup.pId);
     imprimir(msg, device);
@@ -94,7 +102,7 @@ function ImpresoraUSB(msg) {
     const devices = escpos.USB.findPrinter();
     devices.forEach(function (el) {
       const device = new escpos.USB(el);
-      imprimir(msg, device);
+      imprimir(msg, device, options);
     });
   }
 }
@@ -119,6 +127,10 @@ mqttClient.on("message", function (topic, message) {
         : ImpresoraSerial(message)
     } else if (topic == "hit.hardware/visor") {
       Visor(message);
+    } else if (topic == "hit.hardware/cajon"){
+      setup.isUsbPrinter
+      ? ImpresoraUSB(message, {abrirCajon: true})
+      : ImpresoraSerial(message, {abrirCajon: true})
     }
   } catch (e) {
     console.log("Error en MQTT: \n" + e);
