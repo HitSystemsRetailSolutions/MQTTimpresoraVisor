@@ -94,7 +94,6 @@ function imprimir(msg, device, options) {
 }
 // si la impresora es usb
 function ImpresoraUSB(msg, options) {
-  console.log('hola');
   if (setup.useVidPid) {
     const device = new escpos.USB(setup.vId, setup.pId);
     imprimir(msg, device);
