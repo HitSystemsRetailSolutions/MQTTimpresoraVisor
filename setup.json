@@ -14,5 +14,7 @@
     "vId": "0x000",
     "pId": "0x000",
     "testUsbImpresora": true,
-    "ShowMessageLog":false
+    "ShowMessageLog":false,
+    "logo": "./logo.png",
+    "imprimirLogo": false
 }
