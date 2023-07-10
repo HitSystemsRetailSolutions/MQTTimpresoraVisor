@@ -9,6 +9,11 @@ let serialReaderVisor = undefined;
 let serialVisor = undefined;
 escpos.Serial = require('escpos-serialport');
 
+// Servidor http que escuchará las instrucciones para imprimir
+const Server = require('./model/Server');
+const server = new Server();
+server.listen();
+
 if (setup.visor) {
   try {
     serialVisor = new SerialPort(setup.portVisor, {
@@ -23,6 +28,7 @@ if (setup.visor) {
     console.log("Error al cargar el visor serie");
   }
 }
+
 if (setup.testUsbImpresora) {
   var devices = escpos.USB.findPrinter();
   if (setup.useVidPid) {
@@ -94,8 +100,6 @@ function imprimir(msg, device, options) {
 }
 // si la impresora es usb
 function ImpresoraUSB(msg, options) {
-
-
   if (setup.useVidPid) {
     let device = new escpos.USB(setup.vId, setup.pId);
     const printer = new escpos.Printer(device);
@@ -119,7 +123,6 @@ function ImpresoraSerial(msg) {
     baudRate: setup.rate,
   });
   imprimir(msg, serialDevice);
-
 }
 
 function Visor(msg) {
