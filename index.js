@@ -118,7 +118,9 @@ function imprimir(imprimirArray = [], device) {
           size = linea.payload;
         } else {
           // si no, imprimimos la linea del tipo que sea con su contenido. Abajo de la funcion explico porque lo hago asi *1
-          printer.size(size[0], size[1])[linea.tipo](linea.payload);
+          if (typeof linea.payload != "object")
+            printer.size(size[0], size[1])[linea.tipo](linea.payload);
+          else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
         }
       });
       printer.close();
