@@ -7,7 +7,7 @@ const setup = require("./setup");
 const mqttClient = MQTT.connect(setup.mqtt);
 let serialReaderVisor = undefined;
 let serialVisor = undefined;
-escpos.Serial = require('escpos-serialport');
+escpos.Serial = require("escpos-serialport");
 
 if (setup.visor) {
   try {
@@ -23,6 +23,7 @@ if (setup.visor) {
     console.log("Error al cargar el visor serie");
   }
 }
+
 if (setup.testUsbImpresora) {
   var devices = escpos.USB.findPrinter();
   if (setup.useVidPid) {
@@ -32,9 +33,11 @@ if (setup.testUsbImpresora) {
       printer
         .font("a")
         .align("ct")
+        .setCharacterCodeTable(19)
+        .encode("cp858")
         .style("bu")
         .size(1, 1)
-        .text("Impresora USB conectada")
+        .text("Impresora USB conectada -> áàèéíìòóùúñÑ €")
         .cut()
         .close();
     });
@@ -63,63 +66,86 @@ mqttClient.on("connect", function () {
 });
 
 // funciopn que recibe el mensaje y lo imprime
-function imprimir(msg, device, options) {
-  const logo = setup.logo;
-  const encode = "cp858"
-  const printer = new escpos.Printer(device);
-  if(options && options.abrirCajon){
-    device.open(function () {
-      printer
-        .pureText(msg)
-        .close();
-    });
-  }
-  escpos.Image.load(logo, function (image) {
+// function imprimir(msg, device, options) {
+//   const logo = setup.logo;
+//   const encode = "cp858";
+//   const printer = new escpos.Printer(device);
+//   if (options && options.abrirCajon) {
+//     device.open(function () {
+//       printer.pureText(msg).close();
+//     });
+//   }
+//   escpos.Image.load(logo, function (image) {
+//     device.open(function () {
+//       printer
+//         .model("TP809")
+//         .font("A")
+//         .setCharacterCodeTable(19)
+//         .encode(encode)
+//         .align("ct");
+//       if (setup.imprimirLogo) {
+//         printer.raster(image);
+//       }
+//       printer.text(msg).cut("PAPER_FULL_CUT").close();
+//     });
+//   });
+// }
 
-      device.open(function () {
-        printer
-          .model("TP809")
-          .font("A")
-          .setCharacterCodeTable(19)
-          .encode(encode)
-          .align("ct")
-          if(setup.imprimirLogo){
-            printer.raster(image)
-          }
-          printer.text(msg)
-          .cut("PAPER_FULL_CUT")
-          .close();
+function imprimir(imprimirArray = [], device, options) {
+  // recojemos el logo, creamos la impresora a partir del dispositivo y iniciamos el tamaño
+  const logo = setup.logo;
+  const printer = new escpos.Printer(device);
+  let size = [0, 0];
+  // cargamos el logo
+  escpos.Image.load(logo, function (image) {
+    // abrimos el dispositivo
+    device.open(function () {
+      // configuraciones iniciales de la impresora
+      printer
+        .model("TP809")
+        .font("A")
+        .setCharacterCodeTable(19)
+        .encode("cp858")
+        .align("ct");
+      // si tenemos que imprimir el logo, lo imprimimos
+      if (setup.imprimirLogo && options?.imprimirLogo) {
+        printer.raster(image);
+      }
+      // recorremos el array de impresion
+      imprimirArray.forEach((linea) => {
+        // si la linea es para cambiar el tamaño, lo cambiamos
+        if (linea.tipo == "size") {
+          size = linea.payload;
+        } else {
+          // si no, imprimimos la linea del tipo que sea con su contenido. Abajo de la funcion explico porque lo hago asi *1
+          if (typeof linea.payload != "object")
+            printer.size(size[0], size[1])[linea.tipo](linea.payload);
+          else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
+        }
       });
+      printer.close();
+    });
   });
 }
 // si la impresora es usb
 function ImpresoraUSB(msg, options) {
-
-
   if (setup.useVidPid) {
     let device = new escpos.USB(setup.vId, setup.pId);
-    const printer = new escpos.Printer(device);
-    device.open(function () {
-      printer.setCharacterCodeTable(19).encode("CP858").pureText(msg).close();
-    });
+    imprimir(msg, device, options);
   } else {
     var devices = escpos.USB.findPrinter();
     devices.forEach(function (el) {
-
       const device = new escpos.USB(el);
       imprimir(msg, device, options);
-
     });
   }
 }
 
 function ImpresoraSerial(msg) {
-
   const serialDevice = new escpos.Serial(setup.port, {
     baudRate: setup.rate,
   });
   imprimir(msg, serialDevice);
-
 }
 
 function Visor(msg) {
@@ -128,19 +154,21 @@ function Visor(msg) {
 
 mqttClient.on("message", function (topic, message) {
   try {
-    if (setup.ShowMessageLog) console.log(message);
+    const mensaje = JSON.parse(Buffer.from(message, "binary").toString("utf8"));
+    let { arrayImprimir, options } = mensaje;
     if (topic == "hit.hardware/printer") {
       if (setup.isUsbPrinter) {
-        ImpresoraUSB(message);
+        ImpresoraUSB(arrayImprimir, options);
         return;
       }
-      ImpresoraSerial(message);
+      ImpresoraSerial(arrayImprimir, options);
     } else if (topic == "hit.hardware/visor") {
-      Visor(message);
-    } else if (topic == "hit.hardware/cajon"){
+      Visor(mensaje);
+    } else if (topic == "hit.hardware/cajon") {
+      options.abrirCajon = true;
       setup.isUsbPrinter
-      ? ImpresoraUSB(message, {abrirCajon: true})
-      : ImpresoraSerial(message, {abrirCajon: true})
+        ? ImpresoraUSB(arrayImprimir, options)
+        : ImpresoraSerial(arrayImprimir, options);
     }
   } catch (e) {
     console.log("Error en MQTT: \n" + e);
