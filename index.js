@@ -91,7 +91,7 @@ mqttClient.on("connect", function () {
 //   });
 // }
 
-function imprimir(imprimirArray = [], device) {
+function imprimir(imprimirArray = [], device, options) {
   // recojemos el logo, creamos la impresora a partir del dispositivo y iniciamos el tamaño
   const logo = setup.logo;
   const printer = new escpos.Printer(device);
@@ -108,7 +108,7 @@ function imprimir(imprimirArray = [], device) {
         .encode("cp858")
         .align("ct");
       // si tenemos que imprimir el logo, lo imprimimos
-      if (setup.imprimirLogo) {
+      if (setup.imprimirLogo && options?.imprimirLogo) {
         printer.raster(image);
       }
       // recorremos el array de impresion
@@ -131,10 +131,7 @@ function imprimir(imprimirArray = [], device) {
 function ImpresoraUSB(msg, options) {
   if (setup.useVidPid) {
     let device = new escpos.USB(setup.vId, setup.pId);
-    const printer = new escpos.Printer(device);
-    device.open(function () {
-      printer.setCharacterCodeTable(19).encode("CP858").pureText(msg).close();
-    });
+    imprimir(msg, device, options);
   } else {
     var devices = escpos.USB.findPrinter();
     devices.forEach(function (el) {
@@ -158,19 +155,22 @@ function Visor(msg) {
 mqttClient.on("message", function (topic, message) {
   try {
     const mensaje = JSON.parse(Buffer.from(message, "binary").toString("utf8"));
+    let { arrayImprimir, options } = mensaje;
+    console.log({ arrayImprimir, mensaje });
 
     if (topic == "hit.hardware/printer") {
       if (setup.isUsbPrinter) {
-        ImpresoraUSB(mensaje);
+        ImpresoraUSB(arrayImprimir, options);
         return;
       }
-      ImpresoraSerial(mensaje);
+      ImpresoraSerial(arrayImprimir, options);
     } else if (topic == "hit.hardware/visor") {
       Visor(mensaje);
     } else if (topic == "hit.hardware/cajon") {
+      options.abrirCajon = true;
       setup.isUsbPrinter
-        ? ImpresoraUSB(mensaje, { abrirCajon: true })
-        : ImpresoraSerial(mensaje, { abrirCajon: true });
+        ? ImpresoraUSB(arrayImprimir, options)
+        : ImpresoraSerial(arrayImprimir, options);
     }
   } catch (e) {
     console.log("Error en MQTT: \n" + e);
