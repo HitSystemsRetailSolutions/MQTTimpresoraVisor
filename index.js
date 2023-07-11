@@ -97,7 +97,7 @@ function imprimir(imprimirArray = [], device, options) {
   const printer = new escpos.Printer(device);
   let size = [0, 0];
   // cargamos el logo
-  escpos.Image.load(logo, function (image) {
+  escpos.Image.load(`${__dirname}/${logo}`, function (image) {
     // abrimos el dispositivo
     device.open(async function () {
       // configuraciones iniciales de la impresora
