@@ -156,8 +156,6 @@ mqttClient.on("message", function (topic, message) {
   try {
     const mensaje = JSON.parse(Buffer.from(message, "binary").toString("utf8"));
     let { arrayImprimir, options } = mensaje;
-    console.log({ arrayImprimir, mensaje });
-
     if (topic == "hit.hardware/printer") {
       if (setup.isUsbPrinter) {
         ImpresoraUSB(arrayImprimir, options);
