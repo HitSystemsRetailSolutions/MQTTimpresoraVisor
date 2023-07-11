@@ -99,7 +99,7 @@ function imprimir(imprimirArray = [], device, options) {
   // cargamos el logo
   escpos.Image.load(logo, function (image) {
     // abrimos el dispositivo
-    device.open(function () {
+    device.open(async function () {
       // configuraciones iniciales de la impresora
       printer
         .model("TP809")
@@ -109,21 +109,35 @@ function imprimir(imprimirArray = [], device, options) {
         .align("ct");
       // si tenemos que imprimir el logo, lo imprimimos
       if (setup.imprimirLogo && options?.imprimirLogo) {
-        printer.raster(image);
+        printer.image(image).then(() => {
+          imprimirArray.forEach((linea) => {
+            // si la linea es para cambiar el tamaño, lo cambiamos
+            if (linea.tipo == "size") {
+              size = linea.payload;
+            } else {
+              // si no, imprimimos la linea del tipo que sea con su contenido. Abajo de la funcion explico porque lo hago asi *1
+              if (typeof linea.payload != "object")
+                printer.size(size[0], size[1])[linea.tipo](linea.payload);
+              else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
+            }
+          });
+          printer.close();
+        });
+      } else {
+        // recorremos el array de impresion
+        imprimirArray.forEach((linea) => {
+          // si la linea es para cambiar el tamaño, lo cambiamos
+          if (linea.tipo == "size") {
+            size = linea.payload;
+          } else {
+            // si no, imprimimos la linea del tipo que sea con su contenido. Abajo de la funcion explico porque lo hago asi *1
+            if (typeof linea.payload != "object")
+              printer.size(size[0], size[1])[linea.tipo](linea.payload);
+            else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
+          }
+        });
+        printer.close();
       }
-      // recorremos el array de impresion
-      imprimirArray.forEach((linea) => {
-        // si la linea es para cambiar el tamaño, lo cambiamos
-        if (linea.tipo == "size") {
-          size = linea.payload;
-        } else {
-          // si no, imprimimos la linea del tipo que sea con su contenido. Abajo de la funcion explico porque lo hago asi *1
-          if (typeof linea.payload != "object")
-            printer.size(size[0], size[1])[linea.tipo](linea.payload);
-          else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
-        }
-      });
-      printer.close();
     });
   });
 }
