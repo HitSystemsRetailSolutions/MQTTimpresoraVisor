@@ -5,9 +5,12 @@ const MQTT = require("mqtt");
 const ReadLineItf = require("readline").createInterface;
 const setup = require("./setup");
 const mqttClient = MQTT.connect(setup.mqtt);
+const axios = require("axios");
 let serialReaderVisor = undefined;
 let serialVisor = undefined;
 escpos.Serial = require("escpos-serialport");
+var impresion = {};
+const Jimp = require("jimp");
 
 if (setup.visor) {
   try {
@@ -63,82 +66,69 @@ if (setup.testUsbImpresora) {
 mqttClient.on("connect", function () {
   mqttClient.subscribe(setup.tin); // MQTT sub
   mqttClient.subscribe(setup.tinVisor); // MQTT sub
+  mqttClient.subscribe("hit.hardware/logo");
 });
+axios.defaults.baseURL = setup.http;
 
-// funciopn que recibe el mensaje y lo imprime
-// function imprimir(msg, device, options) {
-//   const logo = setup.logo;
-//   const encode = "cp858";
-//   const printer = new escpos.Printer(device);
-//   if (options && options.abrirCajon) {
-//     device.open(function () {
-//       printer.pureText(msg).close();
-//     });
-//   }
-//   escpos.Image.load(logo, function (image) {
-//     device.open(function () {
-//       printer
-//         .model("TP809")
-//         .font("A")
-//         .setCharacterCodeTable(19)
-//         .encode(encode)
-//         .align("ct");
-//       if (setup.imprimirLogo) {
-//         printer.raster(image);
-//       }
-//       printer.text(msg).cut("PAPER_FULL_CUT").close();
-//     });
-//   });
-// }
+axios
+  .post("/impresora/getLogo")
+  .then((res) => {
+    if (!res.data) {
+      throw new Error("No hay logo");
+    }
+  })
+  .catch(() => {
+    console.log(
+      "error al cargar el logo. Se imprimiran los tickets sin el logo"
+    );
+  });
+
+// funcion que recibe el mensaje y lo imprime
 
 function imprimir(imprimirArray = [], device, options) {
-  // recojemos el logo, creamos la impresora a partir del dispositivo y iniciamos el tamaño
-  const logo = setup.logo;
   const printer = new escpos.Printer(device);
   let size = [0, 0];
   // cargamos el logo
-  escpos.Image.load(`${__dirname}/${logo}`, function (image) {
-    // abrimos el dispositivo
-    device.open(async function () {
-      // configuraciones iniciales de la impresora
-      printer
-        .model("TP809")
-        .font("A")
-        .setCharacterCodeTable(19)
-        .encode("cp858")
-        .align("ct");
-      // si tenemos que imprimir el logo, lo imprimimos
-      if (setup.imprimirLogo && options?.imprimirLogo) {
-        printer.image(image).then(() => {
-          imprimirArray.forEach((linea) => {
-            // si la linea es para cambiar el tamaño, lo cambiamos
-            if (linea.tipo == "size") {
-              size = linea.payload;
-            } else {
-              // si no, imprimimos la linea del tipo que sea con su contenido. Abajo de la funcion explico porque lo hago asi *1
-              if (typeof linea.payload != "object")
-                printer.size(size[0], size[1])[linea.tipo](linea.payload);
-              else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
-            }
-          });
-          printer.close();
-        });
-      } else {
-        // recorremos el array de impresion
+  // abrimos el dispositivo
+  device.open(async function () {
+    // configuraciones iniciales de la impresora
+    printer
+      .model("TP809")
+      .font("A")
+      .setCharacterCodeTable(19)
+      .encode("cp858")
+      .align("ct");
+    // si tenemos que imprimir el logo, lo imprimimos
+    if (setup.imprimirLogo && options?.imprimirLogo) {
+      printer.image(impresion.logo).then(() => {
         imprimirArray.forEach((linea) => {
           // si la linea es para cambiar el tamaño, lo cambiamos
           if (linea.tipo == "size") {
             size = linea.payload;
           } else {
-            // si no, imprimimos la linea del tipo que sea con su contenido. Abajo de la funcion explico porque lo hago asi *1
+            // si no, imprimimos la linea del tipo que sea con su contenido.
             if (typeof linea.payload != "object")
               printer.size(size[0], size[1])[linea.tipo](linea.payload);
             else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
           }
         });
         printer.close();
-      }
-    });
+      });
+    } else {
+      // recorremos el array de impresion
+      imprimirArray.forEach((linea) => {
+        // si la linea es para cambiar el tamaño, lo cambiamos
+        if (linea.tipo == "size") {
+          size = linea.payload;
+        } else {
+          // si no, imprimimos la linea del tipo que sea con su contenido.
+          if (typeof linea.payload != "object")
+            printer.size(size[0], size[1])[linea.tipo](linea.payload);
+          else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
+        }
+      });
+      printer.close();
+    }
   });
 }
 // si la impresora es usb
@@ -166,11 +156,13 @@ function Visor(msg) {
   serialVisor.write(msg);
 }
 
-mqttClient.on("message", function (topic, message) {
+mqttClient.on("message", async function (topic, message) {
   try {
-    const mensaje = JSON.parse(Buffer.from(message, "binary").toString("utf8"));
-    let { arrayImprimir, options } = mensaje;
     if (topic == "hit.hardware/printer") {
+      const mensaje = JSON.parse(
+        Buffer.from(message, "binary").toString("utf8")
+      );
+      let { arrayImprimir, options } = mensaje;
       if (setup.isUsbPrinter) {
         ImpresoraUSB(arrayImprimir, options);
         return;
@@ -183,6 +175,22 @@ mqttClient.on("message", function (topic, message) {
       setup.isUsbPrinter
         ? ImpresoraUSB(arrayImprimir, options)
         : ImpresoraSerial(arrayImprimir, options);
+    } else if (topic == "hit.hardware/logo") {
+      const mensaje = JSON.parse(
+        Buffer.from(message, "binary").toString("utf8")
+      );
+      const buffer = Buffer.from(mensaje.logo, "hex");
+      await Jimp.read(buffer).then(async (fotico) => {
+        // despues de casi morir, me di cuenta de que el logo se puede pasar como un buffer por la funcion de escpos
+        // pero como los tios no tienen casi documentacion me he tenido que leer el codigo fuente de la libreria para enterarme
+        /* Yasai :D  👍 */
+        const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
+        escpos.Image.load(fotico2, Jimp.MIME_PNG, function (image) {
+          impresion.logo = image;
+          setup.imprimirLogo = true;
+          console.log("logo cargado!");
+        });
+      });
     }
   } catch (e) {
     console.log("Error en MQTT: \n" + e);
