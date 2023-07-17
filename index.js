@@ -11,6 +11,7 @@ let serialVisor = undefined;
 escpos.Serial = require("escpos-serialport");
 var impresion = {};
 const Jimp = require("jimp");
+const fs = require("fs");
 
 if (setup.visor) {
   try {
@@ -83,8 +84,41 @@ axios
     );
   });
 
-// funcion que recibe el mensaje y lo imprime
+const resetRest = () => {
+  fs.writeFileSync("rest.txt", "450");
+};
 
+const getRest = () => {
+  return Number(fs.readFileSync("rest.txt", "utf8"));
+};
+
+const restarRest = (cantidad) => {
+  let rest = getRest();
+  rest = rest - cantidad;
+  fs.writeFileSync("rest.txt", rest.toString());
+};
+
+const calcularResta = (options) => {
+  const logo = options.imprimirLogo && setup?.imprimirLogo ? 2.5 : 0;
+
+  switch (options.tipo) {
+    case "venta":
+      restarRest(14 + options.lExtra - 1 + logo);
+      break;
+    case "encargo":
+      restarRest(9 + options.lExtra - 1 + logo);
+      break;
+    case "salida":
+    case "entrada":
+      restarRest(7.2 + logo);
+      break;
+    case "cierreCaja":
+      restarRest(18.8 + logo);
+      break;
+  }
+};
+
+// funcion que recibe el mensaje y lo imprime
 function imprimir(imprimirArray = [], device, options) {
   const printer = new escpos.Printer(device);
   let size = [0, 0];
@@ -130,6 +164,7 @@ function imprimir(imprimirArray = [], device, options) {
       printer.close();
     }
   });
+  calcularResta(options);
 }
 // si la impresora es usb
 function ImpresoraUSB(msg, options) {
