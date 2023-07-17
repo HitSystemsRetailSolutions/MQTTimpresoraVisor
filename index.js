@@ -180,17 +180,24 @@ mqttClient.on("message", async function (topic, message) {
         Buffer.from(message, "binary").toString("utf8")
       );
       const buffer = Buffer.from(mensaje.logo, "hex");
-      await Jimp.read(buffer).then(async (fotico) => {
-        // despues de casi morir, me di cuenta de que el logo se puede pasar como un buffer por la funcion de escpos
-        // pero como los tios no tienen casi documentacion me he tenido que leer el codigo fuente de la libreria para enterarme
-        /* Yasai :D  👍 */
-        const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
-        escpos.Image.load(fotico2, Jimp.MIME_PNG, function (image) {
-          impresion.logo = image;
-          setup.imprimirLogo = true;
-          console.log("logo cargado!");
+
+      await Jimp.read(buffer)
+        .then(async (fotico) => {
+          // despues de casi morir, me di cuenta de que el logo se puede pasar como un buffer por la funcion de escpos
+          // pero como los tios no tienen casi documentacion me he tenido que leer el codigo fuente de la libreria para enterarme
+          /* Yasai :D  👍 */
+          const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
+          escpos.Image.load(fotico2, Jimp.MIME_PNG, function (image) {
+            impresion.logo = image;
+            setup.imprimirLogo = true;
+            console.log("logo cargado!");
+          });
+        })
+        .catch((e) => {
+          console.log("Error al cargar el logo: \n" + e);
+          impresion.logo = null;
+          setup.imprimirLogo = false;
         });
-      });
     }
   } catch (e) {
     console.log("Error en MQTT: \n" + e);
