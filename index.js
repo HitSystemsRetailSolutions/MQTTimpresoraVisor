@@ -32,7 +32,14 @@ if (setup.visor) {
     console.log("Error al cargar el visor serie");
   }
 }
+const resetRestante = () => {
+  fs.writeFileSync("./restante.txt", setup.longitudRollo.toString());
+};
+
 const getRestante = () => {
+  if (!fs.existsSync("./restante.txt")) {
+    resetRestante();
+  }
   const rest = fs.readFileSync("./restante.txt", "utf8");
   return Number(rest);
 };
@@ -105,13 +112,12 @@ axios
   });
 
 const restar = (num) => {
+  if (!fs.existsSync("./restante.txt")) {
+    resetRestante();
+  }
   const rest = fs.readFileSync("./restante.txt", "utf8");
   const total = Number(rest) - num;
   fs.writeFileSync("./restante.txt", total.toFixed(2).toString());
-};
-
-const resetRestante = () => {
-  fs.writeFileSync("./restante.txt", setup.longitudRollo.toString());
 };
 
 const encontrarSaltos = (string = "") => {
