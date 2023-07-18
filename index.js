@@ -15,6 +15,7 @@ const mqttClient = MQTT.connect(setup.mqtt);
 let serialReaderVisor = undefined;
 let serialVisor = undefined;
 var impresion = {};
+let avisado = false;
 
 // visor serie
 if (setup.visor) {
@@ -31,6 +32,10 @@ if (setup.visor) {
     console.log("Error al cargar el visor serie");
   }
 }
+const getRestante = () => {
+  const rest = fs.readFileSync("./restante.txt", "utf8");
+  return Number(rest);
+};
 // test de la impresora USB
 if (setup.testUsbImpresora) {
   var devices = escpos.USB.findPrinter();
@@ -105,11 +110,6 @@ const restar = (num) => {
   fs.writeFileSync("./restante.txt", total.toFixed(2).toString());
 };
 
-const getRestante = () => {
-  const rest = fs.readFileSync("./restante.txt", "utf8");
-  return Number(rest);
-};
-
 const resetRestante = () => {
   fs.writeFileSync("./restante.txt", setup.longitudRollo.toString());
 };
@@ -132,6 +132,9 @@ const restarPorTipo = (linea, size) => {
       if (linea.payload === "LF") {
         restar(0.5);
       }
+      break;
+    case "barcode":
+      restar(1.65);
       break;
   }
 };
@@ -189,6 +192,12 @@ function imprimir(imprimirArray = [], device, options) {
       printer.close();
     }
   });
+  if (getRestante() < 500 && !avisado) {
+    // cuando se de este caso, quedaran aproximadamente unos 40 tickets normales para imprimir
+    axios.post("/impresora/pocoPapel").catch((err) => {
+      console.log("Error al conectar con el backend");
+    }); // si esto falla es porque no tenemos conexion con el backend
+  }
 }
 // si la impresora es usb
 function ImpresoraUSB(msg, options) {
@@ -263,6 +272,8 @@ mqttClient.on("message", async function (topic, message) {
           impresion.logo = null;
           setup.imprimirLogo = false;
         });
+    } else if (topic == "hit.hardware/resetPaper") {
+      resetRestante();
     }
   } catch (e) {
     console.log("Error en MQTT: \n" + e);
