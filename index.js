@@ -37,36 +37,43 @@ if (setup.testUsbImpresora) {
   // si tenemos que usar el puerto manualmente establecido
   if (setup.useVidPid) {
     let device = new escpos.USB(setup.vId, setup.pId);
-    const printer = new escpos.Printer(device);
     // probamos la impresion con los caracteres especiales incluidos
-    device.open(function () {
-      printer
-        .font("a")
-        .align("ct")
-        .setCharacterCodeTable(19)
-        .encode("cp858")
-        .style("bu")
-        .size(1, 1)
-        .text("Impresora USB conectada -> áàèéíìòóùúñÑ €")
-        .cut()
-        .close();
-    });
+    imprimir(
+      [
+        { tipo: "font", payload: "a" },
+        { tipo: "align", payload: "ct" },
+        { tipo: "setCharacterCodeTable", payload: 19 },
+        { tipo: "encode", payload: "cp858" },
+        { tipo: "style", payload: "bu" },
+        { tipo: "size", payload: (1, 1) },
+        { tipo: "text", payload: "Impresora USB conectada -> áàèéíìòóùúñÑ €" },
+        { tipo: "cut", payload: "" },
+      ],
+      device,
+      { imprimirLogo: false }
+    );
   } else {
     // si no, buscamos la impresora
     devices.forEach(function (el) {
       let device = new escpos.USB(el);
-      const printer = new escpos.Printer(device);
       // probamos la impresion con los caracteres especiales incluidos
-      device.open(function () {
-        printer
-          .font("a")
-          .align("ct")
-          .style("bu")
-          .size(1, 1)
-          .text("Impresora USB conectada -> áàèéíìòóùúñÑ €")
-          .cut()
-          .close();
-      });
+      imprimir(
+        [
+          { tipo: "font", payload: "a" },
+          { tipo: "align", payload: "ct" },
+          { tipo: "setCharacterCodeTable", payload: 19 },
+          { tipo: "encode", payload: "cp858" },
+          { tipo: "style", payload: "bu" },
+          { tipo: "size", payload: (1, 1) },
+          {
+            tipo: "text",
+            payload: "Impresora USB conectada -> áàèéíìòóùúñÑ €",
+          },
+          { tipo: "cut", payload: "" },
+        ],
+        device,
+        { imprimirLogo: false }
+      );
     });
   }
 }
@@ -91,37 +98,40 @@ axios
       "error al cargar el logo. Se imprimiran los tickets sin el logo"
     );
   });
-// funcion que resetea el archivo que guarda cuanto papel queda
-const resetRest = () => {
-  fs.writeFileSync("rest.txt", "450");
-};
-// funcion que devuelve cuanto papel queda
-const getRest = () => {
-  return Number(fs.readFileSync("rest.txt", "utf8"));
-};
-// funcion que resta en el archivo
-const restarRest = (cantidad) => {
-  let rest = getRest();
-  rest = rest - cantidad;
-  fs.writeFileSync("rest.txt", rest.toString());
+
+const restar = (num) => {
+  const rest = fs.readFileSync("./restante.txt", "utf8");
+  const total = Number(rest) - num;
+  fs.writeFileSync("./restante.txt", total.toFixed(2).toString());
 };
 
-const calcularResta = (options) => {
-  const logo = options.imprimirLogo && setup?.imprimirLogo ? 2.5 : 0;
-  // recogemos las opciones y restamos el papel que se gasta (aproximado)
-  switch (options.tipo) {
-    case "venta":
-      restarRest(14 + options.lExtra - 1 + logo);
+const getRestante = () => {
+  const rest = fs.readFileSync("./restante.txt", "utf8");
+  return Number(rest);
+};
+
+const resetRestante = () => {
+  fs.writeFileSync("./restante.txt", setup.longitudRollo.toString());
+};
+
+const encontrarSaltos = (string = "") => {
+  const regexp = /\n/g;
+  const res = string.match(regexp);
+
+  return res?.length || 0;
+};
+
+const restarPorTipo = (linea, size) => {
+  const equivalencias = [0.4, 0.6, 0.9];
+
+  switch (linea.tipo) {
+    case "text":
+      restar((encontrarSaltos(linea.texto) + 1) * equivalencias[size]);
       break;
-    case "encargo":
-      restarRest(9 + options.lExtra - 1 + logo);
-      break;
-    case "salida":
-    case "entrada":
-      restarRest(7.2 + logo);
-      break;
-    case "cierreCaja":
-      restarRest(18.8 + logo);
+    case "control":
+      if (linea.payload === "LF") {
+        restar(0.5);
+      }
       break;
   }
 };
@@ -133,6 +143,7 @@ function imprimir(imprimirArray = [], device, options) {
   // cargamos el logo
   // abrimos el dispositivo
   device.open(async function () {
+    restar(0.8);
     // configuraciones iniciales de la impresora
     printer
       .model("TP809")
@@ -143,6 +154,7 @@ function imprimir(imprimirArray = [], device, options) {
     // si tenemos que imprimir el logo, lo imprimimos
     if (setup.imprimirLogo && options?.imprimirLogo) {
       printer.image(impresion.logo).then(() => {
+        restar(setup.alturaLogo);
         imprimirArray.forEach((linea) => {
           // si la linea es para cambiar el tamaño, lo cambiamos
           if (linea.tipo == "size") {
@@ -152,6 +164,8 @@ function imprimir(imprimirArray = [], device, options) {
             if (typeof linea.payload != "object")
               printer.size(size[0], size[1])[linea.tipo](linea.payload);
             else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
+
+            restarPorTipo(linea, size[1]);
           }
         });
         printer.close();
@@ -161,20 +175,20 @@ function imprimir(imprimirArray = [], device, options) {
       imprimirArray.forEach((linea) => {
         // si la linea es para cambiar el tamaño, lo cambiamos
         if (linea.tipo == "size") {
-          size = linea.payload;
+          if (Array.isArray(linea.payload)) {
+            size = linea.payload;
+          }
         } else {
           // si no, imprimimos la linea del tipo que sea con su contenido.
           if (typeof linea.payload != "object")
             printer.size(size[0], size[1])[linea.tipo](linea.payload);
           else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
+          restarPorTipo(linea, size[1]);
         }
       });
       printer.close();
     }
   });
-  // TODO: guardar el estado del papel a parte
-  resetRest();
-  calcularResta(options);
 }
 // si la impresora es usb
 function ImpresoraUSB(msg, options) {
@@ -240,6 +254,7 @@ mqttClient.on("message", async function (topic, message) {
           escpos.Image.load(fotico2, Jimp.MIME_PNG, function (image) {
             impresion.logo = image;
             setup.imprimirLogo = true;
+            setup.alturaLogo = image.size.height * 0.012;
             console.log("logo cargado!");
           });
         })

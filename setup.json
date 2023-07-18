@@ -14,6 +14,7 @@
     "useVidPid": false,
     "vId": "0x000",
     "pId": "0x000",
-    "testUsbImpresora": false,
+    "longitudRollo": 4500,
+    "testUsbImpresora": true,
     "ShowMessageLog":false
 }
