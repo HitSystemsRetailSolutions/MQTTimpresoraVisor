@@ -95,6 +95,7 @@ mqttClient.on("connect", function () {
   mqttClient.subscribe(setup.tin); // MQTT sub
   mqttClient.subscribe(setup.tinVisor); // MQTT sub
   mqttClient.subscribe("hit.hardware/logo");
+  mqttClient.subscribe("hit.hardware/resetPaper");
 });
 axios.defaults.baseURL = setup.http;
 // pedimos el logo por si nos encendemos despues del backend
@@ -105,7 +106,7 @@ axios
       throw new Error("No hay logo");
     }
   })
-  .catch(() => {
+  .catch((e) => {
     console.log(
       "error al cargar el logo. Se imprimiran los tickets sin el logo"
     );
@@ -200,6 +201,7 @@ function imprimir(imprimirArray = [], device, options) {
   });
   if (getRestante() < 500 && !avisado) {
     // cuando se de este caso, quedaran aproximadamente unos 40 tickets normales para imprimir
+    // avisado = true; // para que no se repita el mensaje cada vez que se imprima un ticket
     axios.post("/impresora/pocoPapel").catch((err) => {
       console.log("Error al conectar con el backend");
     }); // si esto falla es porque no tenemos conexion con el backend
