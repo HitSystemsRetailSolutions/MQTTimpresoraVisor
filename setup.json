@@ -4,6 +4,7 @@
     "rate": 115200,
     "rateVisor": 9600,
     "mqtt": "mqtt://127.0.0.1:1883",
+    "http": "http://127.0.0.1:3000",
     "tout": "robot/out",
     "tin": "hit.hardware/printer",
     "tinVisor": "hit.hardware/visor",
@@ -14,7 +15,5 @@
     "vId": "0x000",
     "pId": "0x000",
     "testUsbImpresora": false,
-    "ShowMessageLog":false,
-    "logo": "./logo.png",
-    "imprimirLogo": false
+    "ShowMessageLog":false
 }
