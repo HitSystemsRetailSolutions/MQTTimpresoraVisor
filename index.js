@@ -16,6 +16,7 @@ let serialReaderVisor = undefined;
 let serialVisor = undefined;
 var impresion = {};
 let avisado = false;
+let visorActivo = false;
 
 // visor serie
 if (setup.visor) {
@@ -25,11 +26,14 @@ if (setup.visor) {
     });
     serialReaderVisor = ReadLineItf({ serialVisor });
     serialReaderVisor.on("line", function (value) {
-      console.log("out --> [" + value + "]");
       mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
     });
+    visorActivo = true;
   } catch (err) {
-    console.log("Error al cargar el visor serie");
+    console.log(
+      "Error al conectar con el visor, compruebe que esta conectado porfavor."
+    );
+    visorActivo = false;
   }
 }
 const resetRestante = () => {
@@ -108,7 +112,7 @@ axios
   })
   .catch((e) => {
     console.log(
-      "error al cargar el logo. Se imprimiran los tickets sin el logo"
+      "error al cargar el logo. Se imprimiran los tickets sin el logo (error no urgente)"
     );
   });
 
@@ -229,16 +233,15 @@ function ImpresoraSerial(msg) {
 }
 // mensajes para el visor
 function Visor(msg) {
+  if (!visorActivo) return;
   serialVisor.write(msg);
 }
 // manejamos los mensajes mqtt
 mqttClient.on("message", async function (topic, message) {
   try {
-    // si tenemos que imprimir
+    let mensaje = Buffer.from(message, "binary").toString("utf8");
+    if (topic != "hit.hardware/visor") mensaje = JSON.parse(mensaje);
     if (topic == "hit.hardware/printer") {
-      const mensaje = JSON.parse(
-        Buffer.from(message, "binary").toString("utf8")
-      );
       let { arrayImprimir, options } = mensaje;
       if (setup.isUsbPrinter) {
         ImpresoraUSB(arrayImprimir, options);
@@ -257,9 +260,6 @@ mqttClient.on("message", async function (topic, message) {
       // si tenemos que cargar el logo al programa
     } else if (topic == "hit.hardware/logo") {
       // recibimos el buffer del logo en hex y lo pasamos a binario
-      const mensaje = JSON.parse(
-        Buffer.from(message, "binary").toString("utf8")
-      );
       const buffer = Buffer.from(mensaje.logo, "hex");
       // lo cargamos con jimp para pasarlo a png siempre (de esta forma podemos imprimir mas extensiones)
       await Jimp.read(buffer)
@@ -272,11 +272,9 @@ mqttClient.on("message", async function (topic, message) {
             impresion.logo = image;
             setup.imprimirLogo = true;
             setup.alturaLogo = image.size.height * 0.012;
-            console.log("logo cargado!");
           });
         })
         .catch((e) => {
-          console.log("Error al cargar el logo: \n" + e);
           impresion.logo = null;
           setup.imprimirLogo = false;
         });
