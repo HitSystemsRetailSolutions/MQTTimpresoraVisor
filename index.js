@@ -16,7 +16,7 @@ let serialReaderVisor = undefined;
 let serialVisor = undefined;
 var impresion = {};
 let avisado = false;
-let visorActivo = false;
+//let visorActivo = false;
 
 // visor serie
 if (setup.visor) {
@@ -28,12 +28,12 @@ if (setup.visor) {
     serialReaderVisor.on("line", function (value) {
       mqttClient.publish(setup.tout, value, { qos: setup.qos }); // MQTT pub
     });
-    visorActivo = true;
+    //visorActivo = true;
   } catch (err) {
     console.log(
       "Error al conectar con el visor, compruebe que esta conectado porfavor."
     );
-    visorActivo = false;
+    //visorActivo = false;
   }
 }
 const resetRestante = () => {
@@ -233,7 +233,7 @@ function ImpresoraSerial(msg) {
 }
 // mensajes para el visor
 function Visor(msg) {
-  if (!visorActivo) return;
+  //if (!visorActivo) return;
   serialVisor.write(msg);
 }
 // manejamos los mensajes mqtt
