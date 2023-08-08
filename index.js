@@ -58,7 +58,7 @@ if (setup.testUsbImpresora) {
         { tipo: "encode", payload: "cp858" },
         { tipo: "style", payload: "bu" },
         { tipo: "size", payload: (1, 1) },
-        { tipo: "text", payload: "Impresora USB conectada -> áàèéíìòóùúñÑ €" },
+        { tipo: "text", payload: "Impresora USB conectada" },
         { tipo: "cut", payload: "" },
       ],
       device,
