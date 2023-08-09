@@ -236,7 +236,8 @@ function Visor(msg) {
 mqttClient.on("message", async function (topic, message) {
   try {
     let mensaje = Buffer.from(message, "binary").toString("utf8");
-    if (topic != "hit.hardware/visor") mensaje = JSON.parse(mensaje);
+    if(mensaje != "")
+    if (topic != "hit.hardware/visor" && topic != "hit.hardware/resetPaper") mensaje = JSON.parse(mensaje);
     if (topic == "hit.hardware/printer") {
       let { arrayImprimir, options } = mensaje;
       if (setup.isUsbPrinter) {
