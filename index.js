@@ -18,18 +18,35 @@ var impresion = {};
 let avisado = false;
 let visorActivo = false;
 
+function exists(portName) {
+  return SerialPort.list().then((res) => {
+    return res.some((port) => port.path === portName);
+  });
+}
+
+function getVisor() {
+  try {
+    exists(setup.rateVisor).then((res) => {
+      if (res)
+        return new SerialPort(setup.portVisor, {
+          baudRate: setup.rateVisor,
+        });
+      return undefined;
+    });
+  } catch (e) {
+    console.log(e);
+    return undefined;
+  }
+}
+
 // visor serie
 if (setup.visor) {
   try {
-    serialVisor = new SerialPort(setup.portVisor, {
-      baudRate: setup.rateVisor,
-    });
-    visorActivo = true;
+    serialVisor = getVisor();
   } catch (err) {
     console.log(
       "Error al conectar con el visor, compruebe que esta conectado porfavor."
     );
-    visorActivo = false;
   }
 }
 const resetRestante = () => {
@@ -229,15 +246,16 @@ function ImpresoraSerial(msg) {
 }
 // mensajes para el visor
 function Visor(msg) {
-  if (!visorActivo) return;
+  if (!serialVisor) return;
   serialVisor.write(msg);
 }
 // manejamos los mensajes mqtt
 mqttClient.on("message", async function (topic, message) {
   try {
     let mensaje = Buffer.from(message, "binary").toString("utf8");
-    if(mensaje != "")
-    if (topic != "hit.hardware/visor" && topic != "hit.hardware/resetPaper") mensaje = JSON.parse(mensaje);
+    if (mensaje != "")
+      if (topic != "hit.hardware/visor" && topic != "hit.hardware/resetPaper")
+        mensaje = JSON.parse(mensaje);
     if (topic == "hit.hardware/printer") {
       let { arrayImprimir, options } = mensaje;
       if (setup.isUsbPrinter) {
