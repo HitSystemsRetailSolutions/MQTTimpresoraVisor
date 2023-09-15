@@ -216,13 +216,14 @@ function imprimir(imprimirArray = [], device, options) {
       printer.close();
     }
   });
-  if (getRestante() < 500 && !avisado) {
-    // cuando se de este caso, quedaran aproximadamente unos 40 tickets normales para imprimir
-    // avisado = true; // para que no se repita el mensaje cada vez que se imprima un ticket
-    axios.post("/impresora/pocoPapel").catch((err) => {
-      console.log("Error al conectar con el backend");
-    }); // si esto falla es porque no tenemos conexion con el backend
-  }
+  // lo comento por si se vuelve a utilizar :)
+  // if (getRestante() < 500 && !avisado) {
+  //   // cuando se de este caso, quedaran aproximadamente unos 40 tickets normales para imprimir
+  //   // avisado = true; // para que no se repita el mensaje cada vez que se imprima un ticket
+  //   axios.post("/impresora/pocoPapel").catch((err) => {
+  //     console.log("Error al conectar con el backend");
+  //   }); // si esto falla es porque no tenemos conexion con el backend
+  // }
 }
 // si la impresora es usb
 function ImpresoraUSB(msg, options) {
