@@ -26,12 +26,12 @@ function exists(portName) {
 
 function getVisor() {
   try {
-    exists(setup.rateVisor).then((res) => {
+    exists(setup.portVisor).then((res) => {
       if (res)
-        return new SerialPort(setup.portVisor, {
+        serialVisor = new SerialPort(setup.portVisor, {
           baudRate: setup.rateVisor,
         });
-      return undefined;
+      return serialVisor;
     });
   } catch (e) {
     console.log(e);
