@@ -26,7 +26,7 @@ function exists(portName) {
 
 function getVisor() {
   try {
-    exists(setup.rateVisor).then((res) => {
+    exists(setup.portVisor).then((res) => {
       if (res)
         serialVisor = new SerialPort(setup.portVisor, {
           baudRate: setup.rateVisor,
