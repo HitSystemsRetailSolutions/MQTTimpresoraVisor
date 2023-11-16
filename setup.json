@@ -1,6 +1,7 @@
 {
     "port": "/dev/ttyS0",
     "portVisor": "/dev/ttyUSB0",
+    "balanca":"/dev/ttyS1",
     "rate": 115200,
     "rateVisor": 9600,
     "mqtt": "mqtt://127.0.0.1:1883",
@@ -15,6 +16,6 @@
     "vId": "0x000",
     "pId": "0x000",
     "longitudRollo": 4500,
-    "testUsbImpresora": true,
-    "ShowMessageLog":false
+    "testUsbImpresora": false,
+    "ShowMessageLog":true
 }

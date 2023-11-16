@@ -14,10 +14,45 @@ const setup = require("./setup");
 const mqttClient = MQTT.connect(setup.mqtt);
 let serialReaderVisor = undefined;
 let serialVisor = undefined;
+
+
+//console.log(setup.balanca);
+const serialBalanca= SerialPort(setup.balanca, {
+    baudRate: 9600,
+    parser: new SerialPort.parsers.Readline("\r")
+});
+var lastPes = "";
+var lastPesEstable="";
+var avisat=false;
+serialBalanca.on('open',function(){
+    serialBalanca.on('data', function(data){
+	readData = data.toString();
+        for (var i = 1; i < (readData.length); i++) 
+		if(readData.charCodeAt(i)==13){
+			var pes = readData.substring(0,i);
+			if(pes!="0000000"){
+				lastPesEstable=lastPes;
+				lastPes=pes;
+				if(lastPesEstable==lastPes){
+				if (!avisat) {
+					mqttClient.publish('hit/hardware/pes',lastPesEstable)
+				}
+				avisat=true;
+				}else { avisat=false;
+					};
+				lastPesEstable=lastPes;
+				};
+			}else{
+				lastPesEstable="";
+			};
+    });
+});
+
+
+
 var impresion = {};
 let avisado = false;
 let visorActivo = false;
-
 function exists(portName) {
   return SerialPort.list().then((res) => {
     return res.some((port) => port.path === portName);
