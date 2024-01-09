@@ -107,11 +107,16 @@ async function main() {
 }
 
 async function saveOptions() {
-  fs.writeFile("setup.json", JSON.stringify(setup), "utf8", function (err) {
-    if (err) return console.log(err);
-    console.log("Archivo guardado correctamente");
-    process.exit();
-  });
+  fs.writeFile(
+    dir + "/setup.json",
+    JSON.stringify(setup),
+    "utf8",
+    function (err) {
+      if (err) return console.log(err);
+      console.log("Archivo guardado correctamente");
+      process.exit();
+    }
+  );
 }
 mqttClient.on("message", async function (topic, message) {
   shopInfo = JSON.parse(message.toString());
