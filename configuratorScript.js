@@ -236,8 +236,7 @@ async function printerSerialOptions() {
     async (answer) => {
       if (answer != "") setup.printerOptions.port = answer;
       else setup.printerOptions.port = "/dev/ttyS0";
-      header +=
-        "\n🔧 Puerto de la impresora: 🔌    " + setup.printerOptions.port;
+      header += "\n🔧 Puerto de la impresora: 🔌    " + answer;
     }
   );
   clearConsole();
