@@ -22,9 +22,10 @@ function runScript(scriptPath, callback) {
   });
 }
 var setup = null;
+let dir = require("path").dirname(require.main.filename);
 async function checkSetup() {
   try {
-    await fs.readFile("./setup.json", "utf8", function read(err, data) {
+    await fs.readFile(dir + "/setup.json", "utf8", function read(err, data) {
       if (err) {
         throw err;
       }
@@ -37,7 +38,7 @@ async function checkSetup() {
       } else {
         runScript("./configuratorScriptAuto.js", function (err) {
           setup = null;
-          setup = require("./setup");
+          setup = require(dir + "/setup.json");
           checkSetup();
         });
       }

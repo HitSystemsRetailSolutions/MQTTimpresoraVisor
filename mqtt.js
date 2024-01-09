@@ -8,7 +8,8 @@ const fs = require("fs");
 const axios = require("axios");
 escpos.Serial = require("escpos-serialport");
 // cargamos la configuracion
-const setup = require("./setup");
+let dir = require("path").dirname(require.main.filename);
+let setup = require(dir + "/setup.json");
 // iniciamos variables necesarias
 const mqttClient = MQTT.connect(setup.mqttOptions.mqtt);
 

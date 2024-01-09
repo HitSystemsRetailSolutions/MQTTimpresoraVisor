@@ -9,7 +9,8 @@ var header = `----------------------------------
 ------ 🤖 AutoInstalador 🤖 ----- 
 ------ 📜 Versión: ${version} 📜 ----- 
 ----------------------------------\n`;
-let oldSetup = require("./setup.json");
+let dir = require("path").dirname(require.main.filename);
+let oldSetup = require(dir + "/setup.json");
 let setup = {
   version: version,
   mqttOptions: {
