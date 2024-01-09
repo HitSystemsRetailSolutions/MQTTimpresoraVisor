@@ -32,11 +32,11 @@ async function checkSetup() {
       const content = JSON.parse(data);
       setup = content;
       if (setup.version) {
-        runScript("./mqtt.js", function (err) {
+        runScript(dir + "/mqtt.js", function (err) {
           checkSetup();
         });
       } else {
-        runScript("./configuratorScriptAuto.js", function (err) {
+        runScript(dir + "/configuratorScriptAuto.js", function (err) {
           setup = null;
           setup = require(dir + "/setup.json");
           checkSetup();
@@ -44,7 +44,7 @@ async function checkSetup() {
       }
     });
   } catch (e) {
-    runScript("./configuratorScript.js", function (err) {
+    runScript(dir + "/configuratorScript.js", function (err) {
       checkSetup();
     });
   }
