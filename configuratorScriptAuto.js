@@ -9,7 +9,7 @@ var header = `----------------------------------
 ------ 🤖 AutoInstalador 🤖 ----- 
 ------ 📜 Versión: ${version} 📜 ----- 
 ----------------------------------\n`;
-let oldSetup = require("./setup");
+let oldSetup = require("./setup.json");
 let setup = {
   version: version,
   mqttOptions: {
