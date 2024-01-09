@@ -296,7 +296,7 @@ mqttClient.on("message", async function (topic, message) {
         .split("'")
         .join('"');
       log(msg);
-      fs.writeFile("setup.json", msg, function (err) {
+      fs.writeFile(dir + "/setup.json", msg, function (err) {
         if (err) return log(err);
         mqttClient.publish(
           setup.mqttOptions.LogTin,
