@@ -234,8 +234,8 @@ async function printerSerialOptions() {
   clearConsole();
   await askTXT("❓ Puerto de la impresora (default: /dev/ttyS0) ").then(
     async (answer) => {
-      if (answer != "") setup.printerOptions.rate = Number(answer);
-      else setup.printerOptions.rate = "/dev/ttyS0";
+      if (answer != "") setup.printerOptions.port = Number(answer);
+      else setup.printerOptions.port = "/dev/ttyS0";
       header +=
         "\n🔧 Puerto de la impresora: 🔌    " + setup.printerOptions.rate;
     }
@@ -243,7 +243,7 @@ async function printerSerialOptions() {
   clearConsole();
   await askTXT("❓ Ratio de la impresora (default: 115200) ").then(
     async (answer) => {
-      if (answer != "") setup.printerOptions.rate = answer;
+      if (answer != "") setup.printerOptions.rate = Number(answer);
       else setup.printerOptions.rate = 115200;
       header +=
         "\n🔧 Ratio de la impresora: ⏱️     " + setup.printerOptions.rate;
