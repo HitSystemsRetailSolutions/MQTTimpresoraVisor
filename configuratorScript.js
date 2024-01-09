@@ -234,7 +234,7 @@ async function printerSerialOptions() {
   clearConsole();
   await askTXT("❓ Puerto de la impresora (default: /dev/ttyS0) ").then(
     async (answer) => {
-      if (answer != "") setup.printerOptions.rate = answer;
+      if (answer != "") setup.printerOptions.rate = Number(answer);
       else setup.printerOptions.rate = "/dev/ttyS0";
       header +=
         "\n🔧 Puerto de la impresora: 🔌    " + setup.printerOptions.rate;
