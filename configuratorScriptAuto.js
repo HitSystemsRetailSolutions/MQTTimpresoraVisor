@@ -60,7 +60,7 @@ async function main() {
     );
     exit(0);
   }
-  printConsole(`🛍️  Reciviendo información de tienda en: BackEnd`);
+  printConsole(`🛍️  Recibiendo información de tienda en: BackEnd`);
   mqttClient.publish("hit.hardware/getShopInfo");
   setTimeout(() => {
     if (shopInfo.emp == null || shopInfo.lic == null) {
