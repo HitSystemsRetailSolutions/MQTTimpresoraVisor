@@ -4,6 +4,8 @@ var fs = require("fs");
 const MQTT = require("mqtt");
 const { exit } = require("process");
 let shopInfo = { emp: null, lic: null };
+let dir = require("path").dirname(require.main.filename);
+
 var header =
   " ----------------------------------\n ------------ Cfg MQTT ------------\n ----------------------------------\n";
 let setup = {
