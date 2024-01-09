@@ -110,7 +110,41 @@ async function initializer() {
 initializer();
 
 function testPrinter() {
-  const imprimirUSB = (device) => {
+  if (setup.printerOptions.isUsbPrinter) {
+    const imprimirUSB = (device) => {
+      imprimir(
+        [
+          { tipo: "font", payload: "a" },
+          { tipo: "align", payload: "ct" },
+          { tipo: "setCharacterCodeTable", payload: 19 },
+          { tipo: "encode", payload: "cp858" },
+          { tipo: "style", payload: "bu" },
+          { tipo: "size", payload: [1, 1] },
+          { tipo: "text", payload: "Impresora USB conectada" },
+          { tipo: "cut", payload: "" },
+        ],
+        device,
+        { imprimirLogo: false }
+      );
+    };
+
+    if (setup.printerOptions.useVidPid) {
+      const device = new escpos.USB(
+        setup.printerOptions.vId,
+        setup.printerOptions.pId
+      );
+      imprimirUSB(device);
+    } else {
+      const devices = escpos.USB.findPrinter();
+      devices.forEach((el) => {
+        const device = new escpos.USB(el);
+        imprimirUSB(device);
+      });
+    }
+  } else {
+    const serialDevice = new escpos.Serial(setup.printerOptions.port, {
+      baudRate: setup.printerOptions.rate,
+    });
     imprimir(
       [
         { tipo: "font", payload: "a" },
@@ -119,26 +153,12 @@ function testPrinter() {
         { tipo: "encode", payload: "cp858" },
         { tipo: "style", payload: "bu" },
         { tipo: "size", payload: [1, 1] },
-        { tipo: "text", payload: "Impresora USB conectada" },
+        { tipo: "text", payload: "Impresora serie conectada" },
         { tipo: "cut", payload: "" },
       ],
-      device,
+      serialDevice,
       { imprimirLogo: false }
     );
-  };
-
-  if (setup.printerOptions.useVidPid) {
-    const device = new escpos.USB(
-      setup.printerOptions.vId,
-      setup.printerOptions.pId
-    );
-    imprimirUSB(device);
-  } else {
-    const devices = escpos.USB.findPrinter();
-    devices.forEach((el) => {
-      const device = new escpos.USB(el);
-      imprimirUSB(device);
-    });
   }
   log(" -> TestPrinter finalizado ✓");
 }
