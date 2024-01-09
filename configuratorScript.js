@@ -9,6 +9,7 @@ let dir = require("path").dirname(require.main.filename);
 var header =
   " ----------------------------------\n ------------ Cfg MQTT ------------\n ----------------------------------\n";
 let setup = {
+  version: "2.0.0",
   mqttOptions: {
     mqtt: "mqtt://127.0.0.1:1883",
     http: "http://127.0.0.1:3000",
