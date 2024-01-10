@@ -6,6 +6,7 @@ const MQTT = require("mqtt");
 const Jimp = require("jimp");
 const fs = require("fs");
 const axios = require("axios");
+const { get } = require("http");
 escpos.Serial = require("escpos-serialport");
 // cargamos la configuracion
 let dir = require("path").dirname(require.main.filename);
@@ -70,7 +71,7 @@ async function initializer() {
   if (setup.GlobalOptions.visor) {
     log("\n◌ Inicializando visor...");
     try {
-      serialVisor = getVisor();
+      serialVisor = await getVisor();
       if (!serialVisor)
         throw new Error("No se ha encontrado el visor en el sistema.");
       log(" -> Visor inicializado ✓");
@@ -196,9 +197,9 @@ function exists(portName) {
   });
 }
 
-function getVisor() {
+async function getVisor() {
   try {
-    exists(setup.visorOptions.portVisor).then((res) => {
+    return await exists(setup.visorOptions.portVisor).then((res) => {
       if (res)
         serialVisor = new SerialPort(setup.visorOptions.portVisor, {
           baudRate: setup.visorOptions.rateVisor,
