@@ -1,21 +1,31 @@
 {
-    "port": "/dev/ttyS0",
-    "portVisor": "/dev/ttyUSB0",
-    "balanca":"/dev/ttyS1",
-    "rate": 115200,
-    "rateVisor": 9600,
+  "version": "2.0.0",
+  "mqttOptions": {
     "mqtt": "mqtt://127.0.0.1:1883",
     "http": "http://127.0.0.1:3000",
     "tout": "robot/out",
     "tin": "hit.hardware/printer",
     "tinVisor": "hit.hardware/visor",
-    "qos": 2,
+    "LogTin": "hit.hardware/botigues/Tena/842/MQTTImpresoraVisor",
+    "qos": 2
+  },
+  "GlobalOptions": {
     "visor": true,
-    "isUsbPrinter": false,
+    "balanza": false,
+    "ShowMessageLog": false,
+    "empresa": "Tena",
+    "licencia": 842
+  },
+  "printerOptions": {
+    "port": "/dev/ttyS0",
+    "rate": "ss",
+    "isUsbPrinter": true,
     "useVidPid": false,
     "vId": "0x000",
     "pId": "0x000",
-    "longitudRollo": 4500,
-    "testUsbImpresora": false,
-    "ShowMessageLog":true
+    "testPrinter": true,
+    "imprimirLogo": true
+  },
+  "visorOptions": { "portVisor": "COM5", "rateVisor": 9600 },
+  "balanzaOptions": { "balanca": "/dev/ttyS1" }
 }
