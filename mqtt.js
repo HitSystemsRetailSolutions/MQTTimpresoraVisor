@@ -215,6 +215,7 @@ async function getVisor() {
 function imprimir(imprimirArray = [], device, options) {
   const printer = new escpos.Printer(device);
   let size = [0, 0];
+  let qr = undefined;
   device.open(async function () {
     printer
       .model("TP809")
@@ -225,29 +226,57 @@ function imprimir(imprimirArray = [], device, options) {
     if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
       printer.image(impresion.logo).then(() => {
         imprimirArray.forEach((linea) => {
-          if (linea.tipo == "size") {
-            size = linea.payload;
+          if (linea.tipo != "cut") {
+            if (linea.tipo == "qrimage") {
+              qr = linea;
+            } else if (linea.tipo == "size") {
+              if (Array.isArray(linea.payload)) {
+                size = linea.payload;
+              }
+            } else {
+              if (typeof linea.payload != "object")
+                printer.size(size[0], size[1])[linea.tipo](linea.payload);
+              else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
+            }
+          } else if (!qr) printer.cut();
+        });
+        if (qr)
+          printer.qrimage(
+            qr.payload,
+            { type: "png", mode: "dhdw", size: 2 },
+            function (err) {
+              this.cut();
+              this.close();
+            }
+          );
+        else printer.close();
+      });
+    } else {
+      imprimirArray.forEach((linea) => {
+        if (linea.tipo != "cut") {
+          if (linea.tipo == "qrimage") {
+            qr = linea;
+          } else if (linea.tipo == "size") {
+            if (Array.isArray(linea.payload)) {
+              size = linea.payload;
+            }
           } else {
             if (typeof linea.payload != "object")
               printer.size(size[0], size[1])[linea.tipo](linea.payload);
             else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
           }
-        });
-        printer.close();
+        } else if (!qr) printer.cut();
       });
-    } else {
-      imprimirArray.forEach((linea) => {
-        if (linea.tipo == "size") {
-          if (Array.isArray(linea.payload)) {
-            size = linea.payload;
+      if (qr)
+        printer.qrimage(
+          qr.payload,
+          { type: "png", mode: "dhdw", size: 2 },
+          function (err) {
+            this.cut();
+            this.close();
           }
-        } else {
-          if (typeof linea.payload != "object")
-            printer.size(size[0], size[1])[linea.tipo](linea.payload);
-          else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
-        }
-      });
-      printer.close();
+        );
+      else printer.close();
     }
   });
 }
