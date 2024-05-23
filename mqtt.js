@@ -297,11 +297,11 @@ function ImpresoraUSB(msg, options) {
   }
 }
 
-function ImpresoraSerial(msg) {
+function ImpresoraSerial(msg, options) {
   const serialDevice = new escpos.Serial(setup.printerOptions.port, {
     baudRate: setup.printerOptions.rate,
   });
-  imprimir(msg, serialDevice);
+  imprimir(msg, serialDevice, options);
 }
 
 function Visor(msg) {
