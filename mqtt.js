@@ -223,61 +223,43 @@ function imprimir(imprimirArray = [], device, options) {
       .setCharacterCodeTable(19)
       .encode("cp858")
       .align("ct");
+      
     if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
-      printer.image(impresion.logo).then(() => {
-        imprimirArray.forEach((linea) => {
-          if (linea.tipo != "cut") {
-            if (linea.tipo == "qrimage") {
-              qr = linea;
-            } else if (linea.tipo == "size") {
-              if (Array.isArray(linea.payload)) {
-                size = linea.payload;
-              }
-            } else {
-              if (typeof linea.payload != "object")
-                printer.size(size[0], size[1])[linea.tipo](linea.payload);
-              else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
-            }
-          } else if (!qr) printer.cut();
-        });
-        if (qr)
-          printer.qrimage(
-            qr.payload,
-            { type: "png", mode: "dhdw", size: 2 },
-            function (err) {
-              this.cut();
-              this.close();
-            }
-          );
-        else printer.close();
-      });
-    } else {
-      imprimirArray.forEach((linea) => {
-        if (linea.tipo != "cut") {
-          if (linea.tipo == "qrimage") {
-            qr = linea;
-          } else if (linea.tipo == "size") {
-            if (Array.isArray(linea.payload)) {
-              size = linea.payload;
-            }
-          } else {
-            if (typeof linea.payload != "object")
-              printer.size(size[0], size[1])[linea.tipo](linea.payload);
-            else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
-          }
-        } else if (!qr) printer.cut();
-      });
-      if (qr)
-        printer.qrimage(
-          qr.payload,
-          { type: "png", mode: "dhdw", size: 2 },
-          function (err) {
-            this.cut();
-            this.close();
-          }
-        );
-      else printer.close();
+      try {
+        await printer.image(impresion.logo);
+      } catch (error) {
+        setup.printerOptions.imprimirLogo = false;
+        options.imprimirLogo = false;
+        console.log(error)
+      }
     }
+
+    imprimirArray.forEach((linea) => {
+      if (linea.tipo != "cut") {
+        if (linea.tipo == "qrimage") {
+          qr = linea;
+        } else if (linea.tipo == "size") {
+          if (Array.isArray(linea.payload)) {
+            size = linea.payload;
+          }
+        } else {
+          if (typeof linea.payload != "object")
+            printer.size(size[0], size[1])[linea.tipo](linea.payload);
+          else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
+        }
+      } else if (!qr) printer.cut();
+    });
+
+    if (qr)
+      printer.qrimage(
+        qr.payload,
+        { type: "png", mode: "dhdw", size: 2 },
+        function (err) {
+          this.cut();
+          this.close();
+        }
+      );
+    else printer.close();
   });
 }
 
