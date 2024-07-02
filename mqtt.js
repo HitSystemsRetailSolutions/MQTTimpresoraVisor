@@ -344,8 +344,21 @@ function x() {
 mqttClient.on("message", async function (topic, message) {
   try {
     if (topic == "hit.hardware/autoSetup") {
-      console.log(JSON.parse(message));
       autoSetup(message);
+      return null
+    }
+    if (topic == "hit.hardware/autoSetupSave") {
+      let data = JSON.parse(message)
+      let actual = setup
+      actual.printerOptions.port = data.port
+      actual.printerOptions.rate = data.rate
+      actual.printerOptions.isUsbPrinter = data.isUsbPrinter
+      fs.writeFile(dir + "/setup.json", actual, function (err) {
+        if (err) return log(err);
+        console.log("Archivo guardado correctamente. Reiniciando...")
+        x();
+      });
+      console.log(actual,data)
       return null
     }
     if (topic == "hit.hardware/getSetup")
