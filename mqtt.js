@@ -317,7 +317,7 @@ function autoSetup(x) {
       imprimirUSB(device);
     });
   } else {
-    const serialDevice = new escpos.Serial(data.value, {
+    const serialDevice = new escpos.Serial('/dev/'+data.value, {
       baudRate: data.rate,
     });
     imprimir(
@@ -342,10 +342,9 @@ function x() {
 }
 
 mqttClient.on("message", async function (topic, message) {
-  console.log("sip")
   try {
     if (topic == "hit.hardware/autoSetup") {
-      console.log(message.toString());
+      console.log(JSON.parse(message));
       autoSetup(message);
       return null
     }
