@@ -37,14 +37,15 @@ async function initializer() {
       mqttClient.subscribe(setup.mqttOptions.tinVisor); // MQTT sub
       mqttClient.subscribe("hit.hardware/logo");
       mqttClient.subscribe("hit.hardware/getSetup");
+      mqttClient.subscribe("hit.hardware/autoSetup");
       mqttClient.subscribe("hit.hardware/sendSetup");
     });
     log(" -> MQTT iniciado correctamente ✓");
   } catch (e) {
     log(
       " ❗ Error urgente: Error al iniciar MQTT\nError --> " +
-        e +
-        "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
+      e +
+      "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
     );
   }
 
@@ -63,8 +64,8 @@ async function initializer() {
       .catch((e) => {
         log(
           " ❗ Error urgente: Error al inicializar la balanza\n     - Error --> " +
-            e +
-            "\n     - Solucion --> Revisar la configuracion de la balanza en el archivo setup.js\n"
+          e +
+          "\n     - Solucion --> Revisar la configuracion de la balanza en el archivo setup.js\n"
         );
       });
   }
@@ -78,8 +79,8 @@ async function initializer() {
     } catch (e) {
       log(
         " ❗ Error urgente: Error al inicializar el visor\n     - Error --> " +
-          e +
-          "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
+        e +
+        "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
       );
     }
   }
@@ -223,7 +224,7 @@ function imprimir(imprimirArray = [], device, options) {
       .setCharacterCodeTable(19)
       .encode("cp858")
       .align("ct");
-      
+
     if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
       try {
         await printer.image(impresion.logo);
@@ -291,12 +292,63 @@ function Visor(msg) {
   serialVisor.write(msg);
 }
 
+function autoSetup(x) {
+  let data = JSON.parse(x)
+  if (data.type == 0) {
+    const imprimirUSB = (device) => {
+      imprimir(
+        [
+          { tipo: "font", payload: "a" },
+          { tipo: "align", payload: "ct" },
+          { tipo: "setCharacterCodeTable", payload: 19 },
+          { tipo: "encode", payload: "cp858" },
+          { tipo: "style", payload: "bu" },
+          { tipo: "size", payload: [1, 1] },
+          { tipo: "text", payload: "Impresora USB conectada" },
+          { tipo: "cut", payload: "" },
+        ],
+        device,
+        { imprimirLogo: false }
+      );
+    };
+    const devices = escpos.USB.findPrinter();
+    devices.forEach((el) => {
+      const device = new escpos.USB(el);
+      imprimirUSB(device);
+    });
+  } else {
+    const serialDevice = new escpos.Serial(data.value, {
+      baudRate: data.rate,
+    });
+    imprimir(
+      [
+        { tipo: "font", payload: "a" },
+        { tipo: "align", payload: "ct" },
+        { tipo: "setCharacterCodeTable", payload: 19 },
+        { tipo: "encode", payload: "cp858" },
+        { tipo: "style", payload: "bu" },
+        { tipo: "size", payload: [1, 1] },
+        { tipo: "text", payload: "Impresora serie conectada" },
+        { tipo: "cut", payload: "" },
+      ],
+      serialDevice,
+      { imprimirLogo: false }
+    );
+  }
+}
+
 function x() {
   process.exit();
 }
 
 mqttClient.on("message", async function (topic, message) {
+  console.log("sip")
   try {
+    if (topic == "hit.hardware/autoSetup") {
+      console.log(message.toString());
+      autoSetup(message);
+      return null
+    }
     if (topic == "hit.hardware/getSetup")
       return mqttClient.publish(
         setup.mqttOptions.LogTin,
@@ -313,7 +365,7 @@ mqttClient.on("message", async function (topic, message) {
         mqttClient.publish(
           setup.mqttOptions.LogTin,
           "Setup updated to:\n" +
-            JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
+          JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
         );
         log("Archivo guardado correctamente");
         x();
