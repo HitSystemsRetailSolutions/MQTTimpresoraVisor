@@ -37,7 +37,9 @@ async function initializer() {
       mqttClient.subscribe(setup.mqttOptions.tinVisor); // MQTT sub
       mqttClient.subscribe("hit.hardware/logo");
       mqttClient.subscribe("hit.hardware/getSetup");
-      mqttClient.subscribe("hit.hardware/autoSetup");
+      mqttClient.subscribe("hit.hardware/autoSetupPrinter");
+      mqttClient.subscribe("hit.hardware/autoSetupVisor");
+      mqttClient.subscribe("hit.hardware/autoSetupSave");
       mqttClient.subscribe("hit.hardware/sendSetup");
     });
     log(" -> MQTT iniciado correctamente ✓");
@@ -213,6 +215,25 @@ async function getVisor() {
   }
 }
 
+
+async function autoSetupVisor(message) {
+  let sv = undefined;
+  let data = JSON.parse(message);
+  try {
+    await exists(setup.visorOptions.portVisor).then((res) => {
+      if (res)
+        sv = new SerialPort(data.value, {
+          baudRate: data.rate,
+        });
+      sv.write("¡Hola, soy el visor!\n");
+    });
+  } catch (e) {
+    log(e);
+    return undefined;
+  }
+}
+
+
 function imprimir(imprimirArray = [], device, options) {
   const printer = new escpos.Printer(device);
   let size = [0, 0];
@@ -292,7 +313,7 @@ function Visor(msg) {
   serialVisor.write(msg);
 }
 
-function autoSetup(x) {
+function autoSetupPrinter(x) {
   let data = JSON.parse(x)
   if (data.type == 0) {
     const imprimirUSB = (device) => {
@@ -317,7 +338,7 @@ function autoSetup(x) {
       imprimirUSB(device);
     });
   } else {
-    const serialDevice = new escpos.Serial('/dev/'+data.value, {
+    const serialDevice = new escpos.Serial('/dev/' + data.value, {
       baudRate: data.rate,
     });
     imprimir(
@@ -343,22 +364,33 @@ function x() {
 
 mqttClient.on("message", async function (topic, message) {
   try {
-    if (topic == "hit.hardware/autoSetup") {
-      autoSetup(message);
+    if (topic == "hit.hardware/autoSetupPrinter") {
+      autoSetupPrinter(message);
+      return null
+    }
+    if (topic == "hit.hardware/autoSetupVisor") {
+      autoSetupVisor(message);
       return null
     }
     if (topic == "hit.hardware/autoSetupSave") {
-      let data = JSON.parse(message)
-      let actual = setup
-      actual.printerOptions.port = data.port
-      actual.printerOptions.rate = data.rate
-      actual.printerOptions.isUsbPrinter = data.isUsbPrinter
-      fs.writeFile(dir + "/setup.json", actual, function (err) {
+      let msg = Buffer.from(message, "binary")
+        .toString("utf8")
+        .split("'")
+        .join('"');
+      let datas = JSON.parse(msg)
+      let actual = setup;
+      actual.printerOptions.port = datas.printerPort
+      actual.printerOptions.rate = datas.printerRate
+      actual.visorOptions.portVisor = datas.visorPort
+      actual.visorOptions.rateVisor = datas.visorRate
+      actual.printerOptions.isUsbPrinter = datas.printerType == 0
+      actual.printerOptions.useVidPid = false;
+      await fs.writeFile(dir + "/setup.json", JSON.stringify(actual), function (err) {
         if (err) return log(err);
         console.log("Archivo guardado correctamente. Reiniciando...")
         x();
       });
-      console.log(actual,data)
+
       return null
     }
     if (topic == "hit.hardware/getSetup")
@@ -416,6 +448,6 @@ mqttClient.on("message", async function (topic, message) {
         });
     }
   } catch (e) {
-    log("Error en MQTT: \n" + e);
+    log("Error en MQTT: \n" + e + " > > " + topic + " > > " + message);
   }
 });
