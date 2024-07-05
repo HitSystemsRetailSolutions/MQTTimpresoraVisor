@@ -220,9 +220,9 @@ async function autoSetupVisor(message) {
   let sv = undefined;
   let data = JSON.parse(message);
   try {
-    await exists(setup.visorOptions.portVisor).then((res) => {
+    await exists('/dev/' + setup.visorOptions.portVisor).then((res) => {
       if (res)
-        sv = new SerialPort(data.value, {
+        sv = new SerialPort('/dev/' + data.value, {
           baudRate: data.rate,
         });
       sv.write("¡Hola, soy el visor!\n");
@@ -363,6 +363,7 @@ function x() {
 }
 
 mqttClient.on("message", async function (topic, message) {
+  console.log(JSON.parse(message))
   try {
     if (topic == "hit.hardware/autoSetupPrinter") {
       autoSetupPrinter(message);
