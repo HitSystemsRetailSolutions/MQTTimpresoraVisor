@@ -219,8 +219,9 @@ async function getVisor() {
 async function autoSetupVisor(message) {
   let sv = undefined;
   let data = JSON.parse(message);
+  if (setup.visorOptions.portVisor == '/dev/' + data.value) return Visor("¡Hola, soy el visor!\n")
   try {
-    await exists('/dev/' + setup.visorOptions.portVisor).then((res) => {
+    await exists('/dev/' + data.value).then((res) => {
       if (res)
         sv = new SerialPort('/dev/' + data.value, {
           baudRate: data.rate,
