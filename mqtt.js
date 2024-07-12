@@ -364,13 +364,14 @@ function x() {
 }
 
 mqttClient.on("message", async function (topic, message) {
-  console.log(JSON.parse(message))
   try {
     if (topic == "hit.hardware/autoSetupPrinter") {
+		console.log(">>",JSON.parse(message))
       autoSetupPrinter(message);
       return null
     }
     if (topic == "hit.hardware/autoSetupVisor") {
+		console.log(">>",JSON.parse(message))
       autoSetupVisor(message);
       return null
     }
