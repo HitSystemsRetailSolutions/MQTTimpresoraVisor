@@ -46,8 +46,8 @@ async function initializer() {
   } catch (e) {
     log(
       " ❗ Error urgente: Error al iniciar MQTT\nError --> " +
-      e +
-      "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
+        e +
+        "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
     );
   }
 
@@ -66,8 +66,8 @@ async function initializer() {
       .catch((e) => {
         log(
           " ❗ Error urgente: Error al inicializar la balanza\n     - Error --> " +
-          e +
-          "\n     - Solucion --> Revisar la configuracion de la balanza en el archivo setup.js\n"
+            e +
+            "\n     - Solucion --> Revisar la configuracion de la balanza en el archivo setup.js\n"
         );
       });
   }
@@ -81,8 +81,8 @@ async function initializer() {
     } catch (e) {
       log(
         " ❗ Error urgente: Error al inicializar el visor\n     - Error --> " +
-        e +
-        "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
+          e +
+          "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
       );
     }
   }
@@ -215,15 +215,15 @@ async function getVisor() {
   }
 }
 
-
 async function autoSetupVisor(message) {
   let sv = undefined;
   let data = JSON.parse(message);
-  if (setup.visorOptions.portVisor == '/dev/' + data.value) return Visor("¡Hola, soy el visor!\n")
+  if (setup.visorOptions.portVisor == "/dev/" + data.value)
+    return Visor("¡Hola, soy el visor!\n");
   try {
-    await exists('/dev/' + data.value).then((res) => {
+    await exists("/dev/" + data.value).then((res) => {
       if (res)
-        sv = new SerialPort('/dev/' + data.value, {
+        sv = new SerialPort("/dev/" + data.value, {
           baudRate: data.rate,
         });
       sv.write("¡Hola, soy el visor!\n");
@@ -233,7 +233,6 @@ async function autoSetupVisor(message) {
     return undefined;
   }
 }
-
 
 function imprimir(imprimirArray = [], device, options) {
   const printer = new escpos.Printer(device);
@@ -253,7 +252,7 @@ function imprimir(imprimirArray = [], device, options) {
       } catch (error) {
         setup.printerOptions.imprimirLogo = false;
         options.imprimirLogo = false;
-        console.log(error)
+        console.log(error);
       }
     }
 
@@ -315,7 +314,7 @@ function Visor(msg) {
 }
 
 function autoSetupPrinter(x) {
-  let data = JSON.parse(x)
+  let data = JSON.parse(x);
   if (data.type == 0) {
     const imprimirUSB = (device) => {
       imprimir(
@@ -339,7 +338,7 @@ function autoSetupPrinter(x) {
       imprimirUSB(device);
     });
   } else {
-    const serialDevice = new escpos.Serial('/dev/' + data.value, {
+    const serialDevice = new escpos.Serial("/dev/" + data.value, {
       baudRate: data.rate,
     });
     imprimir(
@@ -366,35 +365,42 @@ function x() {
 mqttClient.on("message", async function (topic, message) {
   try {
     if (topic == "hit.hardware/autoSetupPrinter") {
-      console.log(">>", JSON.parse(message))
+      console.log(">>", JSON.parse(message));
       autoSetupPrinter(message);
-      return null
+      return null;
     }
     if (topic == "hit.hardware/autoSetupVisor") {
-      console.log(">>", JSON.parse(message))
+      console.log(">>", JSON.parse(message));
       autoSetupVisor(message);
-      return null
+      return null;
     }
     if (topic == "hit.hardware/autoSetupSave") {
       let msg = Buffer.from(message, "binary")
         .toString("utf8")
         .split("'")
         .join('"');
-      let datas = JSON.parse(msg)
+      let datas = JSON.parse(msg);
       let actual = setup;
-      actual.printerOptions.port = datas.printerPort
-      actual.printerOptions.rate = datas.printerRate
-      actual.visorOptions.portVisor = datas.visorPort
-      actual.visorOptions.rateVisor = datas.visorRate
-      actual.printerOptions.isUsbPrinter = datas.printerType == 0
+      actual.printerOptions.port =
+        datas.printerType == 0
+          ? datas.printerPort
+          : "/dev/" + datas.printerPort;
+      actual.printerOptions.rate = datas.printerRate;
+      actual.visorOptions.portVisor = "/dev/" + datas.visorPort;
+      actual.visorOptions.rateVisor = datas.visorRate;
+      actual.printerOptions.isUsbPrinter = datas.printerType == 0;
       actual.printerOptions.useVidPid = false;
-      await fs.writeFile(dir + "/setup.json", JSON.stringify(actual), function (err) {
-        if (err) return log(err);
-        console.log("Archivo guardado correctamente. Reiniciando...")
-        x();
-      });
+      await fs.writeFile(
+        dir + "/setup.json",
+        JSON.stringify(actual),
+        function (err) {
+          if (err) return log(err);
+          console.log("Archivo guardado correctamente. Reiniciando...");
+          x();
+        }
+      );
 
-      return null
+      return null;
     }
     if (topic == "hit.hardware/getSetup")
       return mqttClient.publish(
@@ -412,7 +418,7 @@ mqttClient.on("message", async function (topic, message) {
         mqttClient.publish(
           setup.mqttOptions.LogTin,
           "Setup updated to:\n" +
-          JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
+            JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
         );
         log("Archivo guardado correctamente");
         x();
