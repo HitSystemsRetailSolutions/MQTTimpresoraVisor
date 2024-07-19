@@ -229,13 +229,15 @@ async function autoSetupVisor(message) {
 
     if (res) {
       sv = new SerialPort(path, { baudRate: data.rate });
-      console.log("serialVisor", sv?.isOpen);
-      if(sv){
-        sv.write("¡Hola, soy el visor!\n");
-        console.log("serialVisor debio escribir");
-      }else{
-        throw new Error(`El dispositivo en ${path} no ha escrito.`);
-      }
+      console.log("serialVisor", sv);
+      sv.write("¡Hola, soy el visor!\n", (err) => {
+        if (err) {
+          console.log("Error al escribir en el puerto serie:", err);
+        } else {
+          console.log("serialVisor debió escribir");
+        }
+      });
+      console.log("se termino el testVisor");
     } else {
       throw new Error(`El dispositivo en ${path} no existe.`);
     }
