@@ -219,7 +219,10 @@ async function autoSetupVisor(message) {
   let sv;
   const data = JSON.parse(message);
 
-  if (setup.visorOptions.portVisor === "/dev/" + data.value) {
+  if (
+    setup.visorOptions.portVisor === "/dev/" + data.value &&
+    setup.GlobalOptions.visor
+  ) {
     return Visor("¡Hola, soy el visor!\n");
   }
 
@@ -229,7 +232,6 @@ async function autoSetupVisor(message) {
 
     if (res) {
       sv = new SerialPort(path, { baudRate: data.rate });
-      console.log("serialVisor", sv);
       sv.write("¡Hola, soy el visor!\n", (err) => {
         if (err) {
           console.log("Error al escribir en el puerto serie:", err);
@@ -237,7 +239,6 @@ async function autoSetupVisor(message) {
           console.log("serialVisor debió escribir");
         }
       });
-      console.log("se termino el testVisor");
     } else {
       throw new Error(`El dispositivo en ${path} no existe.`);
     }
@@ -401,6 +402,12 @@ mqttClient.on("message", async function (topic, message) {
           ? datas.printerPort
           : "/dev/" + datas.printerPort;
       actual.printerOptions.rate = datas.printerRate;
+      if (
+        (datas.visorPort != null || datas.visorPort != "") &&
+        !actual.GlobalOptions.visor
+      )
+        actual.GlobalOptions.visor = true;
+
       actual.visorOptions.portVisor = "/dev/" + datas.visorPort;
       actual.visorOptions.rateVisor = datas.visorRate;
       actual.printerOptions.isUsbPrinter = datas.printerType == 0;
