@@ -216,22 +216,37 @@ async function getVisor() {
 }
 
 async function autoSetupVisor(message) {
-  let sv = undefined;
-  let data = JSON.parse(message);
-  if (setup.visorOptions.portVisor == "/dev/" + data.value)
+  let sv;
+  const data = JSON.parse(message);
+
+  if (setup.visorOptions.portVisor === "/dev/" + data.value) {
     return Visor("¡Hola, soy el visor!\n");
+  }
+
   try {
-    await exists("/dev/" + data.value).then((res) => {
-      if (res)
-        sv = new SerialPort("/dev/" + data.value, {
-          baudRate: data.rate,
+    const path = "/dev/" + data.value;
+    const res = await exists(path);
+
+    if (res) {
+      sv = new SerialPort(path, { baudRate: data.rate });
+      await new Promise((resolve, reject) => {
+        sv.write("¡Hola, soy el visor!\n", (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
         });
-      sv.write("¡Hola, soy el visor!\n");
-    });
+      });
+    } else {
+      throw new Error(`El dispositivo en ${path} no existe.`);
+    }
   } catch (e) {
-    log(e);
+    console.log(e);
     return undefined;
   }
+
+  return sv;
 }
 
 function imprimir(imprimirArray = [], device, options) {
