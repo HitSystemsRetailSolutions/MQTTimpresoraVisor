@@ -133,17 +133,25 @@ function testPrinter() {
     };
 
     if (setup.printerOptions.useVidPid) {
-      const device = new escpos.USB(
-        setup.printerOptions.vId,
-        setup.printerOptions.pId
-      );
-      imprimirUSB(device);
-    } else {
-      const devices = escpos.USB.findPrinter();
-      devices.forEach((el) => {
-        const device = new escpos.USB(el);
+      try {
+        const device = new escpos.USB(
+          setup.printerOptions.vId,
+          setup.printerOptions.pId
+        );
         imprimirUSB(device);
-      });
+      } catch (error) {
+        log(" ❗ Error urgente: Error al conectar la impresora USB: " + error);
+      }
+    } else {
+      try {
+        const devices = escpos.USB.findPrinter();
+        devices.forEach((el) => {
+          const device = new escpos.USB(el);
+          imprimirUSB(device);
+        });
+      } catch (error) {
+        log("❗ Error urgente: Error al conectar la impresora USB: " + error);
+      }
     }
   } else {
     const serialDevice = new escpos.Serial(setup.printerOptions.port, {
@@ -348,11 +356,16 @@ function autoSetupPrinter(x) {
         { imprimirLogo: false }
       );
     };
-    const devices = escpos.USB.findPrinter();
-    devices.forEach((el) => {
-      const device = new escpos.USB(el);
+    if (data.vid && data.pid && data.vid != "" && data.pid != "") {
+      const device = new escpos.USB(data.vid, data.pid);
       imprimirUSB(device);
-    });
+    } else {
+      const devices = escpos.USB.findPrinter();
+      devices.forEach((el) => {
+        const device = new escpos.USB(el);
+        imprimirUSB(device);
+      });
+    }
   } else {
     const serialDevice = new escpos.Serial("/dev/" + data.value, {
       baudRate: data.rate,
@@ -411,7 +424,22 @@ mqttClient.on("message", async function (topic, message) {
       actual.visorOptions.portVisor = "/dev/" + datas.visorPort;
       actual.visorOptions.rateVisor = datas.visorRate;
       actual.printerOptions.isUsbPrinter = datas.printerType == 0;
-      actual.printerOptions.useVidPid = false;
+      if (
+        datas.printerType == 0 &&
+        datas.vid &&
+        datas.pid &&
+        datas.vid != "" &&
+        datas.pid != ""
+      ) {
+        actual.printerOptions.useVidPid = true;
+        actual.printerOptions.vId = datas.vid;
+        actual.printerOptions.pId = datas.pid;
+      } else {
+        actual.printerOptions.useVidPid = false;
+        actual.printerOptions.vId = "0x000";
+        actual.printerOptions.pId = "0x000";
+      }
+
       await fs.writeFile(
         dir + "/setup.json",
         JSON.stringify(actual),
