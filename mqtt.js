@@ -333,11 +333,20 @@ function autoSetupPrinter(x) {
         { imprimirLogo: false }
       );
     };
-    const devices = escpos.USB.findPrinter();
-    devices.forEach((el) => {
-      const device = new escpos.USB(el);
+    if (data.value.includes("vidpid")) {
+      var s = data.value.split("vidpid:")[1]
+      const device = new escpos.USB(
+        s.split(",")[0],
+        s.split(",")[1]
+      );
       imprimirUSB(device);
-    });
+    } else {
+      const devices = escpos.USB.findPrinter();
+      devices.forEach((el) => {
+        const device = new escpos.USB(el);
+        imprimirUSB(device);
+      });
+    }
   } else {
     const serialDevice = new escpos.Serial('/dev/' + data.value, {
       baudRate: data.rate,
@@ -387,7 +396,14 @@ mqttClient.on("message", async function (topic, message) {
       actual.visorOptions.portVisor = datas.visorPort
       actual.visorOptions.rateVisor = datas.visorRate
       actual.printerOptions.isUsbPrinter = datas.printerType == 0
-      actual.printerOptions.useVidPid = false;
+      if (data.value.includes("vidpid")) {
+        actual.printerOptions.useVidPid = true;
+        var s = data.value.split("vidpid:")[1]
+        actual.printerOptions.vId = s.split(",")[0];
+        actual.printerOptions.pId = s.split(",")[1];
+      } else {
+        actual.printerOptions.useVidPid = false;
+      }
       await fs.writeFile(dir + "/setup.json", JSON.stringify(actual), function (err) {
         if (err) return log(err);
         console.log("Archivo guardado correctamente. Reiniciando...")
