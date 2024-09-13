@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visor Tocgame</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
+    />
+    <style>
+      body {
+        font-family: "Roboto", sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #fff5e9;
+      }
+
+      .message {
+        font-size: 5vw;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        max-width: 80%;
+        word-wrap: break-word;
+        white-space: pre-wrap; /* Mantiene los saltos de línea */
+        font-weight: 400;
+      }
+
+      /* Para pantallas más pequeñas, ajustar el tamaño de la fuente */
+      @media (max-width: 600px) {
+        .message {
+          font-size: 8vw; /* Más grande en pantallas pequeñas */
+        }
+      }
+
+      /* Para pantallas grandes, ajustar para que no sea demasiado pequeño */
+      @media (min-width: 1200px) {
+        .message {
+          font-size: 3vw; /* Más pequeño en pantallas grandes */
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="message" class="message">Bon dia!</div>
+
+    <script>
+      const ws = new WebSocket("ws://localhost:8888");
+
+      // Función para agregar salto de línea cada 20 caracteres
+      function addLineBreaks(text, limit) {
+        const regex = new RegExp(`(.{1,${limit}})`, "g");
+        return text.match(regex).join("\n"); // Divide el texto en fragmentos de 20 caracteres y los une con un salto de línea
+      }
+
+      // Cuando llegue un mensaje, actualiza el contenido del mensaje en pantalla
+      ws.onmessage = function (event) {
+        // Obtener el mensaje recibido
+        let message = event.data;
+
+        // Añadir saltos de línea cada 20 caracteres
+        message = addLineBreaks(message, 20);
+
+        // Reemplazar el contenido actual con el nuevo mensaje
+        document.getElementById("message").textContent = message;
+      };
+    </script>
+  </body>
+</html>

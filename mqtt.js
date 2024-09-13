@@ -8,6 +8,10 @@ const fs = require("fs");
 const axios = require("axios");
 const { get } = require("http");
 escpos.Serial = require("escpos-serialport");
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const WebSocket = require('ws');
 // cargamos la configuracion
 let dir = require("path").dirname(require.main.filename);
 let setup = require(dir + "/setup.json");
@@ -365,12 +369,12 @@ function x() {
 mqttClient.on("message", async function (topic, message) {
   try {
     if (topic == "hit.hardware/autoSetupPrinter") {
-		console.log(">>",JSON.parse(message))
+      console.log(">>", JSON.parse(message))
       autoSetupPrinter(message);
       return null
     }
     if (topic == "hit.hardware/autoSetupVisor") {
-		console.log(">>",JSON.parse(message))
+      console.log(">>", JSON.parse(message))
       autoSetupVisor(message);
       return null
     }
@@ -452,4 +456,32 @@ mqttClient.on("message", async function (topic, message) {
   } catch (e) {
     log("Error en MQTT: \n" + e + " > > " + topic + " > > " + message);
   }
+});
+
+// Crear servidor Express para servir HTML
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Cuando un cliente se conecta al WebSocket
+wss.on('connection', (ws) => {
+  console.log('Nuevo cliente conectado al visor');
+
+  // Enviar mensajes del visor al cliente conectado
+  mqttClient.on('message', function (topic, message) {
+    if (topic == "hit.hardware/visor") {
+      ws.send(message.toString());
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('Cliente desconectado');
+  });
+});
+
+// Iniciar servidor en el puerto 8888
+server.listen(8888, () => {
+  console.log('Servidor web escuchando en http://localhost:8888');
 });
