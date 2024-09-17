@@ -70,7 +70,7 @@
     </style>
   </head>
   <body>
-    <img src="logo.png" alt="Logo" class="logo" />
+    <div id="logo-container"></div>
     <div id="message" class="message">Bon dia!</div>
     <div id="time" class="time"></div>
 
@@ -97,6 +97,22 @@
 
       setInterval(updateTime, 1000); // Actualizar la hora cada segundo
       updateTime();
+
+      // Verificar si el archivo logo.png existe
+      fetch("logo.png")
+        .then(response => {
+          if (response.ok) {
+            const logoContainer = document.getElementById("logo-container");
+            const logo = document.createElement("img");
+            logo.src = "logo.png";
+            logo.alt = "Logo";
+            logo.className = "logo";
+            logoContainer.appendChild(logo);
+          }
+        })
+        .catch(error => {
+          console.log("El archivo logo.png no existe.");
+        });
     </script>
   </body>
 </html>
