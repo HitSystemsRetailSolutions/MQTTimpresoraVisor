@@ -440,9 +440,11 @@ mqttClient.on("message", async function (topic, message) {
         : ImpresoraSerial(arrayImprimir, options);
     } else if (topic == "hit.hardware/logo") {
       const buffer = Buffer.from(mensaje.logo, "hex");
+      const logoPath = path.join(__dirname, 'public', 'logo.png');
       await Jimp.read(buffer)
         .then(async (fotico) => {
           const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
+          await fotico.writeAsync(logoPath);
           escpos.Image.load(fotico2, Jimp.MIME_PNG, function (image) {
             impresion.logo = image;
             setup.printerOptions.imprimirLogo = true;
