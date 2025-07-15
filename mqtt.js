@@ -88,6 +88,7 @@ async function initializer() {
   }
 
   axios.defaults.baseURL = setup.mqttOptions.http;
+  if (setup.GlobalOptions.logo) {
   log("\n◌ Inicializando Logo...");
   await axios
     .post("/impresora/getLogo")
@@ -102,7 +103,7 @@ async function initializer() {
         " ⚠️  Error NO urgente: error al cargar el logo. Se imprimiran los tickets sin el logo (NO DEBERIA DEJAR DE FUNCIONAR)\n"
       );
     });
-
+  }
   if (setup.printerOptions.testPrinter) {
     log("\n◌ Inicializando TestPrinter...");
     testPrinter();
@@ -299,8 +300,9 @@ function imprimir(imprimirArray = [], device, options) {
     if (qr)
       printer.qrimage(
         qr.payload,
-        { type: "png", mode: "dhdw", size: 2 },
+        { type: "png", size: 4 },
         function (err) {
+          this.text("\n\n\n"); // <-- Aquí se añade espacio después del QR
           this.cut();
           this.close();
         }
