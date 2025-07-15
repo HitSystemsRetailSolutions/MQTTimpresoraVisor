@@ -88,7 +88,7 @@ async function initializer() {
   }
 
   axios.defaults.baseURL = setup.mqttOptions.http;
-  if (setup.GlobalOptions.logo) {
+  if (setup.GlobalOptions.logo || true) {
   log("\n◌ Inicializando Logo...");
   await axios
     .post("/impresora/getLogo")
