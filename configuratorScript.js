@@ -22,6 +22,7 @@ let setup = {
   GlobalOptions: {
     visor: false,
     balanza: false,
+    printerIP: false,
     ShowMessageLog: false,
     empresa: null,
     licencia: null,
@@ -35,6 +36,10 @@ let setup = {
     pId: "0x000",
     testPrinter: false,
     imprimirLogo: false,
+  },
+  ipPrinterOptions: {
+    quantity: 1,
+    printers: [],
   },
   visorOptions: { portVisor: "/dev/ttyUSB0", rateVisor: "s" },
   balanzaOptions: { balanca: "/dev/ttyS1" },
@@ -114,6 +119,13 @@ async function main() {
       (answer ? "✔️  Activado" : "❌ Desactivado");
   });
   clearConsole();
+  await ask("❓ Tienes impresoras IP (comandero) [ Si / No ] ").then(async (answer) => {
+    setup.GlobalOptions.printerIP = answer;
+    header +=
+      "\n🔧 Configuración impresoras IP establecida en: " +
+      (answer ? "✔️  Activado" : "❌ Desactivado");
+  });
+  clearConsole();
   await ask("❓ Desea activar los Logs [ Si / No ] ").then(async (answer) => {
     setup.GlobalOptions.ShowMessageLog = answer;
     header +=
@@ -156,6 +168,14 @@ async function main() {
       "\n🔧 Impresión del logo: " +
       (answer ? "✔️  Activado" : "❌ Desactivado");
   });
+
+  if (setup.GlobalOptions.printerIP) {
+    header +=
+      "\n\n ----------------------------------\n ------------ Cfg Impresoras IP ------------\n ----------------------------------";
+    clearConsole();
+    await printerIPOptions();
+  }
+
   if (setup.GlobalOptions.visor) {
     header +=
       "\n\n ----------------------------------\n ------------ Cfg Visor ------------\n ----------------------------------";
@@ -208,7 +228,7 @@ async function setShopInfo() {
   clearConsole();
 }
 
-async function mqttOptions() {}
+async function mqttOptions() { }
 
 async function printerUsbOptions() {
   clearConsole();
@@ -268,7 +288,52 @@ async function visorOptions() {
   });
   clearConsole();
 }
-
+async function printerIPOptions() {
+  clearConsole();
+  //cuantas impresoras tiene
+  await askTXT("❓ Cuantas impresoras IP tienes? (default: 1) ").then(
+    async (answer) => {
+      if (answer == "") answer = "1";
+      setup.ipPrinterOptions.quantity = Number(answer);
+      header +=
+        "\n🔧 Cantidad de impresoras IP: ✔️  " + setup.ipPrinterOptions.quantity;
+    }
+  );
+  clearConsole();
+  for (let i = 0; i < setup.ipPrinterOptions.quantity; i++) {
+    await askTXT(
+      `❓ Nombre de la impresora ${i + 1} (default: ${shopInfo.lic}_cafe ) `
+    ).then(async (answer) => {
+      if (answer == "") answer = shopInfo.lic + "_cafe";
+      setup.ipPrinterOptions.printers[i] = {
+        name: answer,
+        ip: "0.0.0.0",
+        port: "9100",
+      };
+      header +=
+        "\n🔧 Nombre de la impresora " + (i + 1) + ": ✔️  " + setup.ipPrinterOptions.printers[i].name;
+    });
+    clearConsole();
+    await askTXT(
+      `❓ IP de la impresora ${i + 1} (default: 0.0.0.0) `
+    ).then(async (answer) => {
+      if (answer == "") answer = "0.0.0.0";
+      setup.ipPrinterOptions.printers[i].ip = answer;
+      header +=
+        "\n🔧 IP de la impresora " + (i + 1) + ": ✔️  " + setup.ipPrinterOptions.printers[i].ip;
+    });
+    clearConsole();
+    await askTXT(
+      `❓ Puerto de la impresora ${i + 1} (default: 9100) `
+    ).then(async (answer) => {
+      if (answer == "") answer = "9100";
+      setup.ipPrinterOptions.printers[i].port = answer;
+      header +=
+        "\n🔧 Puerto de la impresora " + (i + 1) + ": ✔️  " + setup.ipPrinterOptions.printers[i].port;
+    });
+  }
+  clearConsole();
+}
 async function saveOptions() {
   fs.writeFile(
     dir + "/setup.json",
