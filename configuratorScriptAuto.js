@@ -40,7 +40,7 @@ let setup = {
     testPrinter: false,
     imprimirLogo: false,
   },
-  ipPrinterOptions: {
+  comanderoPrinterOptions: {
     quantity: 1,
     printers: [],
   },

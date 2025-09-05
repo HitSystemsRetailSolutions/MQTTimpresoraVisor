@@ -36,8 +36,8 @@ async function initializer() {
     await mqttClient.on("connect", function () {
       mqttClient.subscribe(setup.mqttOptions.tin); // MQTT sub
       mqttClient.subscribe(setup.mqttOptions.tinVisor); // MQTT sub
-      if (setup.ipPrinterOptions.quantity > 0) {
-        setup.ipPrinterOptions.printers.forEach((printer) => {
+      if (setup.comanderoPrinterOptions.quantity > 0) {
+        setup.comanderoPrinterOptions.printers.forEach((printer) => {
           mqttClient.subscribe("hit.hardware/printerIP/" + printer.name);
         });
       }
@@ -132,6 +132,7 @@ function testPrinter() {
           { tipo: "style", payload: "bu" },
           { tipo: "size", payload: [1, 1] },
           { tipo: "text", payload: "Impresora USB conectada" },
+          { tipo: "text", payload: "" },
           { tipo: "cut", payload: "" },
         ],
         device,
@@ -173,6 +174,7 @@ function testPrinter() {
         { tipo: "style", payload: "bu" },
         { tipo: "size", payload: [1, 1] },
         { tipo: "text", payload: "Impresora serie conectada" },
+        { tipo: "text", payload: "" },
         { tipo: "cut", payload: "" },
       ],
       serialDevice,
@@ -373,6 +375,7 @@ function autoSetupPrinter(x) {
           { tipo: "style", payload: "bu" },
           { tipo: "size", payload: [1, 1] },
           { tipo: "text", payload: "Impresora USB conectada" },
+          { tipo: "text", payload: "" },
           { tipo: "cut", payload: "" },
         ],
         device,
@@ -402,6 +405,7 @@ function autoSetupPrinter(x) {
         { tipo: "style", payload: "bu" },
         { tipo: "size", payload: [1, 1] },
         { tipo: "text", payload: "Impresora serie conectada" },
+        { tipo: "text", payload: "" },
         { tipo: "cut", payload: "" },
       ],
       serialDevice,
@@ -529,9 +533,9 @@ mqttClient.on("message", async function (topic, message) {
           setup.printerOptions.imprimirLogo = false;
         });
     } else if (topic.includes("hit.hardware/printerIP/")) {
-      if (setup.ipPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic)) {
+      if (setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic)) {
         const { arrayImprimir, options } = mensaje;
-        const ipPrinter = setup.ipPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic);
+        const ipPrinter = setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic);
         if (ipPrinter) {
           ImpresoraIP(arrayImprimir, {
             ...options,
