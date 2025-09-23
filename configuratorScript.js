@@ -22,6 +22,7 @@ let setup = {
   GlobalOptions: {
     visor: false,
     balanza: false,
+    printerComandero: false,
     ShowMessageLog: false,
     empresa: null,
     licencia: null,
@@ -35,6 +36,10 @@ let setup = {
     pId: "0x000",
     testPrinter: false,
     imprimirLogo: false,
+  },
+  comanderoPrinterOptions: {
+    quantity: 1,
+    printers: [],
   },
   visorOptions: { portVisor: "/dev/ttyUSB0", rateVisor: "s" },
   balanzaOptions: { balanca: "/dev/ttyS1" },
@@ -84,18 +89,6 @@ function clearConsole() {
 async function main() {
   clearConsole();
   header += `🔧 Configuración MQTT establecida en: Default`;
-  /*
-  await ask("❓ Desea modificar los valores MQTT [ Si / No ] ").then(
-    async (answer) => {
-      if (answer) {
-        await mqttOptions();
-        console.log("NO DISPONIBLE");
-      }
-      header += `🔧 Configuración MQTT establecida en: ${
-        answer ? "Configuración" : "Valores por defecto"
-      }`;
-    }
-  );*/
   header +=
     "\n\n ----------------------------------\n ----------- Cfg Global -----------\n ----------------------------------";
   clearConsole();
@@ -111,6 +104,13 @@ async function main() {
     setup.GlobalOptions.balanza = answer;
     header +=
       "\n🔧 Configuración balanza establecida en: " +
+      (answer ? "✔️  Activado" : "❌ Desactivado");
+  });
+  clearConsole();
+  await ask("❓ Quieres configurar impresora para el comandero [ Si / No ] ").then(async (answer) => {
+    setup.GlobalOptions.printerComandero = answer;
+    header +=
+      "\n🔧 Configuración impresora para el comandero: " +
       (answer ? "✔️  Activado" : "❌ Desactivado");
   });
   clearConsole();
@@ -156,6 +156,14 @@ async function main() {
       "\n🔧 Impresión del logo: " +
       (answer ? "✔️  Activado" : "❌ Desactivado");
   });
+
+  if (setup.GlobalOptions.printerComandero) {
+    header +=
+      "\n\n ----------------------------------\n ------------ Cfg Impresoras Comandero ------------\n ----------------------------------";
+    clearConsole();
+    await printerComanderoOptions();
+  }
+
   if (setup.GlobalOptions.visor) {
     header +=
       "\n\n ----------------------------------\n ------------ Cfg Visor ------------\n ----------------------------------";
@@ -207,8 +215,6 @@ async function setShopInfo() {
   });
   clearConsole();
 }
-
-async function mqttOptions() {}
 
 async function printerUsbOptions() {
   clearConsole();
@@ -268,7 +274,81 @@ async function visorOptions() {
   });
   clearConsole();
 }
+async function printerComanderoOptions() {
+  clearConsole();
+  await askTXT("❓ Cuantas impresoras IP tienes? (default: 1) ").then(
+    async (answer) => {
+      if (answer == "") answer = "1";
+      setup.comanderoPrinterOptions.quantity = Number(answer);
+      header +=
+        "\n🔧 Cantidad de impresoras IP: ✔️  " + setup.comanderoPrinterOptions.quantity;
+    }
+  );
 
+  for (let i = 0; i < setup.comanderoPrinterOptions.quantity; i++) {
+    await ask("❓ La impresora del comandero es IP [ Si / No ] ").then(
+      async (answer) => {
+        if (answer) {
+          setup.comanderoPrinterOptions.printers[i] = {
+            name: '',
+            isIP: answer,
+            ip: "0.0.0.0",
+            port: "9100",
+          };
+          header += "\n🔧 La impresora del comandero es IP: ✔️  Activado";
+
+          await askTXT(
+            `❓ Nombre de la impresora ${i + 1} (default: ${shopInfo.lic}_cafe ) `
+          ).then(async (answer) => {
+            if (answer == "") answer = shopInfo.lic + "_cafe";
+            setup.comanderoPrinterOptions.printers[i].name = answer;
+            header +=
+              "\n🔧 Nombre de la impresora " +
+              (i + 1) +
+              ": ✔️  " +
+              setup.comanderoPrinterOptions.printers[i].name;
+          });
+
+          clearConsole();
+          await askTXT(
+            `❓ IP de la impresora ${i + 1} (default: 0.0.0.0) `
+          ).then(async (answer) => {
+            if (answer == "") answer = "0.0.0.0";
+            setup.comanderoPrinterOptions.printers[i].ip = answer;
+            header +=
+              "\n🔧 IP de la impresora " +
+              (i + 1) +
+              ": ✔️  " +
+              setup.comanderoPrinterOptions.printers[i].ip;
+          });
+
+          clearConsole();
+          await askTXT(
+            `❓ Puerto de la impresora ${i + 1} (default: 9100) `
+          ).then(async (answer) => {
+            if (answer == "") answer = "9100";
+            setup.comanderoPrinterOptions.printers[i].port = answer;
+            header +=
+              "\n🔧 Puerto de la impresora " +
+              (i + 1) +
+              ": ✔️  " +
+              setup.comanderoPrinterOptions.printers[i].port;
+          });
+        } else {
+          setup.comanderoPrinterOptions.printers[i] = {
+            name: 'cable',
+            isIP: answer,
+            ip: "0.0.0.0",
+            port: "9100",
+          };
+          header += "\n🔧 La impresora del comandero es IP: ❌ Desactivado";
+        }
+      }
+    );
+  }
+}
+
+// 👇 saveOptions va afuera
 async function saveOptions() {
   fs.writeFile(
     dir + "/setup.json",
@@ -281,4 +361,5 @@ async function saveOptions() {
     }
   );
 }
+
 main();

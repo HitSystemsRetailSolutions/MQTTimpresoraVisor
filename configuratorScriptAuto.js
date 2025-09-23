@@ -25,6 +25,7 @@ let setup = {
   GlobalOptions: {
     visor: false,
     balanza: false,
+    printerIP: false,
     ShowMessageLog: false,
     empresa: null,
     licencia: null,
@@ -38,6 +39,10 @@ let setup = {
     pId: "0x000",
     testPrinter: false,
     imprimirLogo: false,
+  },
+  comanderoPrinterOptions: {
+    quantity: 1,
+    printers: [],
   },
   visorOptions: { portVisor: "/dev/ttyUSB0", rateVisor: "s" },
   balanzaOptions: { balanca: "/dev/ttyS1" },

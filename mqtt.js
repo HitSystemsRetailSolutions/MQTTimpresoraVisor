@@ -8,6 +8,7 @@ const fs = require("fs");
 const axios = require("axios");
 const { get } = require("http");
 escpos.Serial = require("escpos-serialport");
+escpos.Network = require("escpos-network");
 // cargamos la configuracion
 let dir = require("path").dirname(require.main.filename);
 let setup = require(dir + "/setup.json");
@@ -35,6 +36,11 @@ async function initializer() {
     await mqttClient.on("connect", function () {
       mqttClient.subscribe(setup.mqttOptions.tin); // MQTT sub
       mqttClient.subscribe(setup.mqttOptions.tinVisor); // MQTT sub
+      if (setup.comanderoPrinterOptions.quantity > 0) {
+        setup.comanderoPrinterOptions.printers.forEach((printer) => {
+          mqttClient.subscribe("hit.hardware/printerIP/" + printer.name);
+        });
+      }
       mqttClient.subscribe("hit.hardware/logo");
       mqttClient.subscribe("hit.hardware/getSetup");
       mqttClient.subscribe("hit.hardware/autoSetupPrinter");
@@ -46,8 +52,8 @@ async function initializer() {
   } catch (e) {
     log(
       " ❗ Error urgente: Error al iniciar MQTT\nError --> " +
-        e +
-        "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
+      e +
+      "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
     );
   }
 
@@ -66,8 +72,8 @@ async function initializer() {
       .catch((e) => {
         log(
           " ❗ Error urgente: Error al inicializar la balanza\n     - Error --> " +
-            e +
-            "\n     - Solucion --> Revisar la configuracion de la balanza en el archivo setup.js\n"
+          e +
+          "\n     - Solucion --> Revisar la configuracion de la balanza en el archivo setup.js\n"
         );
       });
   }
@@ -81,28 +87,28 @@ async function initializer() {
     } catch (e) {
       log(
         " ❗ Error urgente: Error al inicializar el visor\n     - Error --> " +
-          e +
-          "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
+        e +
+        "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
       );
     }
   }
 
   axios.defaults.baseURL = setup.mqttOptions.http;
   if (setup.GlobalOptions.logo || true) {
-  log("\n◌ Inicializando Logo...");
-  await axios
-    .post("/impresora/getLogo")
-    .then((res) => {
-      if (!res.data) {
-        throw new Error("No hay logo");
-      }
-      log(" -> Logo cargado correctamente ✓");
-    })
-    .catch((e) => {
-      log(
-        " ⚠️  Error NO urgente: error al cargar el logo. Se imprimiran los tickets sin el logo (NO DEBERIA DEJAR DE FUNCIONAR)\n"
-      );
-    });
+    log("\n◌ Inicializando Logo...");
+    await axios
+      .post("/impresora/getLogo")
+      .then((res) => {
+        if (!res.data) {
+          throw new Error("No hay logo");
+        }
+        log(" -> Logo cargado correctamente ✓");
+      })
+      .catch((e) => {
+        log(
+          " ⚠️  Error NO urgente: error al cargar el logo. Se imprimiran los tickets sin el logo (NO DEBERIA DEJAR DE FUNCIONAR)\n"
+        );
+      });
   }
   if (setup.printerOptions.testPrinter) {
     log("\n◌ Inicializando TestPrinter...");
@@ -126,6 +132,7 @@ function testPrinter() {
           { tipo: "style", payload: "bu" },
           { tipo: "size", payload: [1, 1] },
           { tipo: "text", payload: "Impresora USB conectada" },
+          { tipo: "text", payload: "" },
           { tipo: "cut", payload: "" },
         ],
         device,
@@ -167,6 +174,7 @@ function testPrinter() {
         { tipo: "style", payload: "bu" },
         { tipo: "size", payload: [1, 1] },
         { tipo: "text", payload: "Impresora serie conectada" },
+        { tipo: "text", payload: "" },
         { tipo: "cut", payload: "" },
       ],
       serialDevice,
@@ -294,7 +302,9 @@ function imprimir(imprimirArray = [], device, options) {
             printer.size(size[0], size[1])[linea.tipo](linea.payload);
           else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
         }
-      } else if (!qr) printer.cut();
+      } else if (!qr) {
+        printer.cut();
+      }
     });
 
     if (qr)
@@ -334,6 +344,19 @@ function ImpresoraSerial(msg, options) {
   imprimir(msg, serialDevice, options);
 }
 
+function ImpresoraIP(msg, options) {
+  try {
+    if (!options.ip || !options.port) {
+      return log("❗ Error: Faltan datos de IP o puerto en el mensaje.");
+    }
+    const device = new escpos.Network(options.ip, options.port);
+
+    imprimir(msg, device, options);
+  } catch (err) {
+    log(`❗ Error al imprimir por IP: ${err.message}`);
+  }
+}
+
 function Visor(msg) {
   if (!serialVisor) return;
   serialVisor.write(msg);
@@ -352,6 +375,7 @@ function autoSetupPrinter(x) {
           { tipo: "style", payload: "bu" },
           { tipo: "size", payload: [1, 1] },
           { tipo: "text", payload: "Impresora USB conectada" },
+          { tipo: "text", payload: "" },
           { tipo: "cut", payload: "" },
         ],
         device,
@@ -381,6 +405,7 @@ function autoSetupPrinter(x) {
         { tipo: "style", payload: "bu" },
         { tipo: "size", payload: [1, 1] },
         { tipo: "text", payload: "Impresora serie conectada" },
+        { tipo: "text", payload: "" },
         { tipo: "cut", payload: "" },
       ],
       serialDevice,
@@ -470,7 +495,7 @@ mqttClient.on("message", async function (topic, message) {
         mqttClient.publish(
           setup.mqttOptions.LogTin,
           "Setup updated to:\n" +
-            JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
+          JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
         );
         log("Archivo guardado correctamente");
         x();
@@ -507,6 +532,18 @@ mqttClient.on("message", async function (topic, message) {
           impresion.logo = null;
           setup.printerOptions.imprimirLogo = false;
         });
+    } else if (topic.includes("hit.hardware/printerIP/")) {
+      if (setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic)) {
+        const { arrayImprimir, options } = mensaje;
+        const ipPrinter = setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic);
+        if (ipPrinter) {
+          ImpresoraIP(arrayImprimir, {
+            ...options,
+            ip: ipPrinter.ip,
+            port: ipPrinter.port,
+          });
+        }
+      }
     }
   } catch (e) {
     log("Error en MQTT: \n" + e + " > > " + topic + " > > " + message);
