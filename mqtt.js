@@ -36,7 +36,7 @@ async function initializer() {
     await mqttClient.on("connect", function () {
       mqttClient.subscribe(setup.mqttOptions.tin); // MQTT sub
       mqttClient.subscribe(setup.mqttOptions.tinVisor); // MQTT sub
-      if (setup.comanderoPrinterOptions.quantity > 0) {
+      if (setup.comanderoPrinterOptions?.quantity > 0) {
         setup.comanderoPrinterOptions.printers.forEach((printer) => {
           mqttClient.subscribe("hit.hardware/printerIP/" + printer.name);
         });
@@ -52,8 +52,8 @@ async function initializer() {
   } catch (e) {
     log(
       " ❗ Error urgente: Error al iniciar MQTT\nError --> " +
-      e +
-      "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
+        e +
+        "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
     );
   }
 
@@ -72,8 +72,8 @@ async function initializer() {
       .catch((e) => {
         log(
           " ❗ Error urgente: Error al inicializar la balanza\n     - Error --> " +
-          e +
-          "\n     - Solucion --> Revisar la configuracion de la balanza en el archivo setup.js\n"
+            e +
+            "\n     - Solucion --> Revisar la configuracion de la balanza en el archivo setup.js\n"
         );
       });
   }
@@ -87,8 +87,8 @@ async function initializer() {
     } catch (e) {
       log(
         " ❗ Error urgente: Error al inicializar el visor\n     - Error --> " +
-        e +
-        "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
+          e +
+          "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
       );
     }
   }
@@ -308,15 +308,11 @@ function imprimir(imprimirArray = [], device, options) {
     });
 
     if (qr)
-      printer.qrimage(
-        qr.payload,
-        { type: "png", size: 4 },
-        function (err) {
-          this.text("\n\n\n"); // <-- Aquí se añade espacio después del QR
-          this.cut();
-          this.close();
-        }
-      );
+      printer.qrimage(qr.payload, { type: "png", size: 4 }, function (err) {
+        this.text("\n\n\n"); // <-- Aquí se añade espacio después del QR
+        this.cut();
+        this.close();
+      });
     else printer.close();
   });
 }
@@ -495,7 +491,7 @@ mqttClient.on("message", async function (topic, message) {
         mqttClient.publish(
           setup.mqttOptions.LogTin,
           "Setup updated to:\n" +
-          JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
+            JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
         );
         log("Archivo guardado correctamente");
         x();
@@ -533,9 +529,15 @@ mqttClient.on("message", async function (topic, message) {
           setup.printerOptions.imprimirLogo = false;
         });
     } else if (topic.includes("hit.hardware/printerIP/")) {
-      if (setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic)) {
+      if (
+        setup.comanderoPrinterOptions.printers.find(
+          (x) => "hit.hardware/printerIP/" + x.name == topic
+        )
+      ) {
         const { arrayImprimir, options } = mensaje;
-        const ipPrinter = setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic);
+        const ipPrinter = setup.comanderoPrinterOptions.printers.find(
+          (x) => "hit.hardware/printerIP/" + x.name == topic
+        );
         if (ipPrinter) {
           ImpresoraIP(arrayImprimir, {
             ...options,
