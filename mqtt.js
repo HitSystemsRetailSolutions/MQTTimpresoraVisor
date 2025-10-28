@@ -6,7 +6,6 @@ const MQTT = require("mqtt");
 const Jimp = require("jimp");
 const fs = require("fs");
 const axios = require("axios");
-const { get } = require("http");
 escpos.Serial = require("escpos-serialport");
 escpos.Network = require("escpos-network");
 // cargamos la configuracion
@@ -52,31 +51,12 @@ async function initializer() {
   } catch (e) {
     log(
       " ❗ Error urgente: Error al iniciar MQTT\nError --> " +
-        e +
-        "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
+      e +
+      "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
     );
   }
+  initBalanza();
 
-  if (setup.GlobalOptions.balanza) {
-    log("◌ Inicializando balanza...");
-    await exists(setup.balanzaOptions.balanca)
-      .then((res) => {
-        if (!res)
-          throw new Error("No se ha encontrado la balanza en el sistema.");
-        serialBalanca = SerialPort(setup.balanzaOptions.balanca, {
-          baudRate: 9600,
-          parser: new SerialPort.parsers.Readline("\r"),
-        });
-        log(" -> Balanza inicializada ✓");
-      })
-      .catch((e) => {
-        log(
-          " ❗ Error urgente: Error al inicializar la balanza\n     - Error --> " +
-            e +
-            "\n     - Solucion --> Revisar la configuracion de la balanza en el archivo setup.js\n"
-        );
-      });
-  }
   if (setup.GlobalOptions.visor) {
     log("\n◌ Inicializando visor...");
     try {
@@ -87,8 +67,8 @@ async function initializer() {
     } catch (e) {
       log(
         " ❗ Error urgente: Error al inicializar el visor\n     - Error --> " +
-          e +
-          "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
+        e +
+        "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
       );
     }
   }
@@ -119,6 +99,68 @@ async function initializer() {
 }
 
 initializer();
+
+async function initBalanza() {
+  if (!setup.GlobalOptions.balanza) return;
+
+  log("◌ Inicializando balanza...");
+
+  const balanzaExiste = await exists(setup.balanzaOptions.balanca);
+  if (!balanzaExiste) {
+    log("❗ Error: No se ha encontrado la balanza en el sistema.");
+    return;
+  }
+
+  try {
+    serialBalanca = new SerialPort(
+      setup.balanzaOptions.balanca,
+      { baudRate: 9600 }
+    );
+
+    let bufferPeso = "";
+
+    serialBalanca.on("data", (chunk) => {
+      chunk = chunk.toString().trim();
+      if (!chunk) return;
+
+      bufferPeso += chunk;
+
+      // La balanza envía siempre 7 caracteres (ej: 000.490)
+      while (bufferPeso.length >= 7) {
+        let peso = bufferPeso.slice(0, 7);
+        bufferPeso = bufferPeso.slice(7);
+
+        let pesoStr = peso.replace(/^0+(?=\d)/, '');
+
+        if (pesoStr !== "000.000") {
+          lastPesEstable = lastPes;
+          lastPes = pesoStr;
+
+          if (lastPesEstable === lastPes && !avisat) {
+            mqttClient.publish("hit/hardware/pes", lastPes);
+            avisat = true;
+          } else if (lastPesEstable !== lastPes) {
+            avisat = false;
+          }
+
+        } else {
+          avisat = false;
+        }
+
+      }
+    });
+
+    serialBalanca.on("open", () => {
+      log(" -> Balanza inicializada ✓");
+    });
+
+    serialBalanca.on("error", (err) => {
+      log("❗ Error en balanza: " + err.message);
+    });
+  } catch (e) {
+    log("❗ Error al inicializar la balanza: " + e);
+  }
+}
 
 function testPrinter() {
   if (setup.printerOptions.isUsbPrinter) {
@@ -183,32 +225,6 @@ function testPrinter() {
   }
   log(" -> TestPrinter finalizado ✓");
 }
-
-if (serialBalanca)
-  serialBalanca.on("open", function () {
-    serialBalanca.on("data", function (data) {
-      readData = data.toString();
-      for (var i = 1; i < readData.length; i++)
-        if (readData.charCodeAt(i) == 13) {
-          var pes = readData.substring(0, i);
-          if (pes != "0000000") {
-            lastPesEstable = lastPes;
-            lastPes = pes;
-            if (lastPesEstable == lastPes) {
-              if (!avisat) {
-                mqttClient.publish("hit/hardware/pes", lastPesEstable);
-              }
-              avisat = true;
-            } else {
-              avisat = false;
-            }
-            lastPesEstable = lastPes;
-          }
-        } else {
-          lastPesEstable = "";
-        }
-    });
-  });
 
 var impresion = {};
 function exists(portName) {
@@ -308,11 +324,15 @@ function imprimir(imprimirArray = [], device, options) {
     });
 
     if (qr)
-      printer.qrimage(qr.payload, { type: "png", size: 4 }, function (err) {
-        this.text("\n\n\n"); // <-- Aquí se añade espacio después del QR
-        this.cut();
-        this.close();
-      });
+      printer.qrimage(
+        qr.payload,
+        { type: "png", size: 4 },
+        function (err) {
+          this.text("\n\n\n"); // <-- Aquí se añade espacio después del QR
+          this.cut();
+          this.close();
+        }
+      );
     else printer.close();
   });
 }
@@ -491,7 +511,7 @@ mqttClient.on("message", async function (topic, message) {
         mqttClient.publish(
           setup.mqttOptions.LogTin,
           "Setup updated to:\n" +
-            JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
+          JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
         );
         log("Archivo guardado correctamente");
         x();
@@ -529,15 +549,9 @@ mqttClient.on("message", async function (topic, message) {
           setup.printerOptions.imprimirLogo = false;
         });
     } else if (topic.includes("hit.hardware/printerIP/")) {
-      if (
-        setup.comanderoPrinterOptions.printers.find(
-          (x) => "hit.hardware/printerIP/" + x.name == topic
-        )
-      ) {
+      if (setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic)) {
         const { arrayImprimir, options } = mensaje;
-        const ipPrinter = setup.comanderoPrinterOptions.printers.find(
-          (x) => "hit.hardware/printerIP/" + x.name == topic
-        );
+        const ipPrinter = setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic);
         if (ipPrinter) {
           ImpresoraIP(arrayImprimir, {
             ...options,
