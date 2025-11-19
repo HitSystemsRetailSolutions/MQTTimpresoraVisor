@@ -283,7 +283,7 @@ async function autoSetupVisor(message) {
   return sv;
 }
 
-function imprimir(imprimirArray = [], device, options) {
+async function imprimir(imprimirArray = [], device, options) {
   const printer = new escpos.Printer(device);
   let size = [0, 0];
   let qr = undefined;
@@ -294,21 +294,25 @@ function imprimir(imprimirArray = [], device, options) {
       .setCharacterCodeTable(19)
       .encode("cp858")
       .align("ct");
-
+    let ejecutarImprimirLogo = false;
     if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
-      try {
-        await printer.image(impresion.logo);
-      } catch (error) {
-        setup.printerOptions.imprimirLogo = false;
-        options.imprimirLogo = false;
-        console.log(error);
-      }
+      ejecutarImprimirLogo = true;
     }
 
-    imprimirArray.forEach((linea) => {
+    // Reemplazar forEach por for...of para esperar correctamente
+    for (const linea of imprimirArray) {
       if (linea.tipo != "cut") {
         if (linea.tipo == "qrimage") {
           qr = linea;
+        } else if (linea.tipo == "logo" && ejecutarImprimirLogo) {
+          try {
+            await printer.image(impresion.logo);
+          } catch (error) {
+            setup.printerOptions.imprimirLogo = false;
+            options.imprimirLogo = false;
+            ejecutarImprimirLogo = false;
+            console.log(error);
+          }
         } else if (linea.tipo == "size") {
           if (Array.isArray(linea.payload)) {
             size = linea.payload;
@@ -321,7 +325,7 @@ function imprimir(imprimirArray = [], device, options) {
       } else if (!qr) {
         printer.cut();
       }
-    });
+    }
 
     if (qr)
       printer.qrimage(
@@ -337,13 +341,13 @@ function imprimir(imprimirArray = [], device, options) {
   });
 }
 
-function ImpresoraUSB(msg, options) {
+async function ImpresoraUSB(msg, options) {
   if (setup.printerOptions.useVidPid) {
     let device = new escpos.USB(
       setup.printerOptions.vId,
       setup.printerOptions.pId
     );
-    imprimir(msg, device, options);
+    await imprimir(msg, device, options);
   } else {
     var devices = escpos.USB.findPrinter();
     devices.forEach(function (el) {
@@ -353,11 +357,11 @@ function ImpresoraUSB(msg, options) {
   }
 }
 
-function ImpresoraSerial(msg, options) {
+async function ImpresoraSerial(msg, options) {
   const serialDevice = new escpos.Serial(setup.printerOptions.port, {
     baudRate: setup.printerOptions.rate,
   });
-  imprimir(msg, serialDevice, options);
+  await imprimir(msg, serialDevice, options);
 }
 
 function ImpresoraIP(msg, options) {
@@ -523,10 +527,11 @@ mqttClient.on("message", async function (topic, message) {
     if (topic == "hit.hardware/printer") {
       let { arrayImprimir, options } = mensaje;
       if (setup.printerOptions.isUsbPrinter) {
-        ImpresoraUSB(arrayImprimir, options);
+        await ImpresoraUSB(arrayImprimir, options);
         return;
       }
-      ImpresoraSerial(arrayImprimir, options);
+      await ImpresoraSerial(arrayImprimir, options);
+      return;
     } else if (topic == "hit.hardware/visor") {
       Visor(mensaje);
     } else if (topic == "hit.hardware/cajon") {
