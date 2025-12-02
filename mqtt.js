@@ -318,9 +318,15 @@ async function imprimir(imprimirArray = [], device, options) {
             size = linea.payload;
           }
         } else {
-          if (typeof linea.payload != "object")
-            printer.size(size[0], size[1])[linea.tipo](linea.payload);
-          else printer.size(size[0], size[1])[linea.tipo](...linea.payload);
+          // Validar que el método existe antes de llamarlo
+          const printerWithSize = printer.size(size[0], size[1]);
+          if (typeof printerWithSize[linea.tipo] === "function") {
+            if (typeof linea.payload != "object")
+              printerWithSize[linea.tipo](linea.payload);
+            else printerWithSize[linea.tipo](...linea.payload);
+          } else {
+            console.log(`Advertencia: El tipo '${linea.tipo}' no es un método válido de la impresora`);
+          }
         }
       } else if (!qr) {
         printer.cut();
