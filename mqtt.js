@@ -51,8 +51,8 @@ async function initializer() {
   } catch (e) {
     log(
       " ❗ Error urgente: Error al iniciar MQTT\nError --> " +
-      e +
-      "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
+        e +
+        "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
     );
   }
   initBalanza();
@@ -67,8 +67,8 @@ async function initializer() {
     } catch (e) {
       log(
         " ❗ Error urgente: Error al inicializar el visor\n     - Error --> " +
-        e +
-        "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
+          e +
+          "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
       );
     }
   }
@@ -112,10 +112,9 @@ async function initBalanza() {
   }
 
   try {
-    serialBalanca = new SerialPort(
-      setup.balanzaOptions.balanca,
-      { baudRate: 9600 }
-    );
+    serialBalanca = new SerialPort(setup.balanzaOptions.balanca, {
+      baudRate: 9600,
+    });
 
     let bufferPeso = "";
 
@@ -130,7 +129,7 @@ async function initBalanza() {
         let peso = bufferPeso.slice(0, 7);
         bufferPeso = bufferPeso.slice(7);
 
-        let pesoStr = peso.replace(/^0+(?=\d)/, '');
+        let pesoStr = peso.replace(/^0+(?=\d)/, "");
 
         if (pesoStr !== "000.000") {
           lastPesEstable = lastPes;
@@ -142,11 +141,9 @@ async function initBalanza() {
           } else if (lastPesEstable !== lastPes) {
             avisat = false;
           }
-
         } else {
           avisat = false;
         }
-
       }
     });
 
@@ -283,66 +280,61 @@ async function autoSetupVisor(message) {
   return sv;
 }
 
-async function imprimir(imprimirArray = [], device, options) {
-  const printer = new escpos.Printer(device);
-  let size = [0, 0];
-  let qr = undefined;
-  device.open(async function () {
-    printer
-      .font("A")
-      .setCharacterCodeTable(19)
-      .encode("cp858")
-      .align("ct");
-    let ejecutarImprimirLogo = false;
-    if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
-      ejecutarImprimirLogo = true;
-    }
-
-    // Reemplazar forEach por for...of para esperar correctamente
-    for (const linea of imprimirArray) {
-      if (linea.tipo != "cut") {
-        if (linea.tipo == "qrimage") {
-          qr = linea;
-        } else if (linea.tipo == "logo" && ejecutarImprimirLogo) {
-          try {
-            printer.raster(impresion.logo, 'normal');
-          } catch (error) {
-            setup.printerOptions.imprimirLogo = false;
-            options.imprimirLogo = false;
-            ejecutarImprimirLogo = false;
-            console.log("Error al imprimir logo:", error);
-          }
-        } else if (linea.tipo == "size") {
-          if (Array.isArray(linea.payload)) {
-            size = linea.payload;
-          }
-        } else {
-          // Validar que el método existe antes de llamarlo
-          const printerWithSize = printer.size(size[0], size[1]);
-          if (typeof printerWithSize[linea.tipo] === "function") {
-            if (typeof linea.payload != "object")
-              printerWithSize[linea.tipo](linea.payload);
-            else printerWithSize[linea.tipo](...linea.payload);
-          } else {
-            console.log(`Advertencia: El tipo '${linea.tipo}' no es un método válido de la impresora`);
-          }
-        }
-      } else if (!qr) {
-        printer.cut();
+function imprimir(imprimirArray = [], device, options) {
+  return new Promise((resolve, reject) => {
+    const printer = new escpos.Printer(device);
+    let size = [0, 0];
+    let qr = undefined;
+    device.open(function () {
+      printer.font("A").setCharacterCodeTable(19).encode("cp858").align("ct");
+      let ejecutarImprimirLogo = false;
+      if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
+        ejecutarImprimirLogo = true;
       }
-    }
 
-    if (qr)
-      printer.qrimage(
-        qr.payload,
-        { type: "png", size: 4 },
-        function (err) {
-          this.text("\n\n\n"); // <-- Aquí se añade espacio después del QR
+      for (const linea of imprimirArray) {
+        if (linea.tipo != "cut") {
+          if (linea.tipo == "qrimage") {
+            qr = linea;
+          } else if (linea.tipo == "logo" && ejecutarImprimirLogo) {
+            try {
+              printer.raster(impresion.logo, "normal");
+            } catch (error) {
+              setup.printerOptions.imprimirLogo = false;
+              options.imprimirLogo = false;
+              ejecutarImprimirLogo = false;
+              console.log("Error al imprimir logo:", error);
+            }
+          } else if (linea.tipo == "size") {
+            if (Array.isArray(linea.payload)) {
+              size = linea.payload;
+            }
+          } else {
+            const printerWithSize = printer.size(size[0], size[1]);
+            if (typeof printerWithSize[linea.tipo] === "function") {
+              if (typeof linea.payload != "object")
+                printerWithSize[linea.tipo](linea.payload);
+              else printerWithSize[linea.tipo](...linea.payload);
+            } else {
+              console.log(
+                `Advertencia: El tipo '${linea.tipo}' no es un método válido de la impresora`
+              );
+            }
+          }
+        } else if (!qr) {
+          printer.cut();
+        }
+      }
+
+      if (qr)
+        printer.qrimage(qr.payload, { type: "png", size: 4 }, function (err) {
+          this.text("\n\n\n");
           this.cut();
           this.close();
-        }
-      );
-    else printer.close();
+          resolve();
+        });
+      else printer.close(resolve);
+    });
   });
 }
 
@@ -362,11 +354,24 @@ async function ImpresoraUSB(msg, options) {
   }
 }
 
+let serialPrinting = false;
 async function ImpresoraSerial(msg, options) {
+  if (serialPrinting) {
+    log("⚠️ Esperando a que termine la impresión serial anterior...");
+    // Espera activa hasta que termine la impresión anterior
+    while (serialPrinting) {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
+  }
+  serialPrinting = true;
   const serialDevice = new escpos.Serial(setup.printerOptions.port, {
     baudRate: setup.printerOptions.rate,
   });
-  await imprimir(msg, serialDevice, options);
+  try {
+    await imprimir(msg, serialDevice, options);
+  } finally {
+    serialPrinting = false;
+  }
 }
 
 function ImpresoraIP(msg, options) {
@@ -520,7 +525,7 @@ mqttClient.on("message", async function (topic, message) {
         mqttClient.publish(
           setup.mqttOptions.LogTin,
           "Setup updated to:\n" +
-          JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
+            JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
         );
         log("Archivo guardado correctamente");
         x();
@@ -555,10 +560,10 @@ mqttClient.on("message", async function (topic, message) {
           }
           // Aplicar filtros para impresión térmica óptima
           fotico
-            .greyscale()           // Convertir a escala de grises
-            .normalize()           // Normalizar niveles
-            .contrast(0.5)         // Aumentar contraste
-            .brightness(-0.1);     // Reducir brillo ligeramente
+            .greyscale() // Convertir a escala de grises
+            .normalize() // Normalizar niveles
+            .contrast(0.5) // Aumentar contraste
+            .brightness(-0.1); // Reducir brillo ligeramente
 
           const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
           escpos.Image.load(fotico2, Jimp.MIME_PNG, function (image) {
@@ -572,9 +577,15 @@ mqttClient.on("message", async function (topic, message) {
           setup.printerOptions.imprimirLogo = false;
         });
     } else if (topic.includes("hit.hardware/printerIP/")) {
-      if (setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic)) {
+      if (
+        setup.comanderoPrinterOptions.printers.find(
+          (x) => "hit.hardware/printerIP/" + x.name == topic
+        )
+      ) {
         const { arrayImprimir, options } = mensaje;
-        const ipPrinter = setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic);
+        const ipPrinter = setup.comanderoPrinterOptions.printers.find(
+          (x) => "hit.hardware/printerIP/" + x.name == topic
+        );
         if (ipPrinter) {
           ImpresoraIP(arrayImprimir, {
             ...options,
