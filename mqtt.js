@@ -289,7 +289,6 @@ async function imprimir(imprimirArray = [], device, options) {
   let qr = undefined;
   device.open(async function () {
     printer
-      .model("TP809")
       .font("A")
       .setCharacterCodeTable(19)
       .encode("cp858")
@@ -306,12 +305,12 @@ async function imprimir(imprimirArray = [], device, options) {
           qr = linea;
         } else if (linea.tipo == "logo" && ejecutarImprimirLogo) {
           try {
-            await printer.image(impresion.logo);
+            printer.raster(impresion.logo, 'normal');
           } catch (error) {
             setup.printerOptions.imprimirLogo = false;
             options.imprimirLogo = false;
             ejecutarImprimirLogo = false;
-            console.log(error);
+            console.log("Error al imprimir logo:", error);
           }
         } else if (linea.tipo == "size") {
           if (Array.isArray(linea.payload)) {
@@ -549,6 +548,18 @@ mqttClient.on("message", async function (topic, message) {
       const buffer = Buffer.from(mensaje.logo, "hex");
       await Jimp.read(buffer)
         .then(async (fotico) => {
+          // Redimensionar para impresora de 80mm: 512px de ancho óptimo
+          const maxWidth = setup.printerOptions.logoWidth || 512;
+          if (fotico.getWidth() > maxWidth) {
+            fotico.resize(maxWidth, Jimp.AUTO);
+          }
+          // Aplicar filtros para impresión térmica óptima
+          fotico
+            .greyscale()           // Convertir a escala de grises
+            .normalize()           // Normalizar niveles
+            .contrast(0.5)         // Aumentar contraste
+            .brightness(-0.1);     // Reducir brillo ligeramente
+
           const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
           escpos.Image.load(fotico2, Jimp.MIME_PNG, function (image) {
             impresion.logo = image;
@@ -556,6 +567,7 @@ mqttClient.on("message", async function (topic, message) {
           });
         })
         .catch((e) => {
+          log(" ❗ Error al cargar logo: " + e);
           impresion.logo = null;
           setup.printerOptions.imprimirLogo = false;
         });
