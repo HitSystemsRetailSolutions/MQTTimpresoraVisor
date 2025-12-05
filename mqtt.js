@@ -51,8 +51,8 @@ async function initializer() {
   } catch (e) {
     log(
       " ❗ Error urgente: Error al iniciar MQTT\nError --> " +
-        e +
-        "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
+      e +
+      "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
     );
   }
   initBalanza();
@@ -67,8 +67,8 @@ async function initializer() {
     } catch (e) {
       log(
         " ❗ Error urgente: Error al inicializar el visor\n     - Error --> " +
-          e +
-          "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
+        e +
+        "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
       );
     }
   }
@@ -298,7 +298,7 @@ function imprimir(imprimirArray = [], device, options) {
             qr = linea;
           } else if (linea.tipo == "logo" && ejecutarImprimirLogo) {
             try {
-              printer.raster(impresion.logo, "normal");
+              printer.image(impresion.logo);
             } catch (error) {
               setup.printerOptions.imprimirLogo = false;
               options.imprimirLogo = false;
@@ -525,7 +525,7 @@ mqttClient.on("message", async function (topic, message) {
         mqttClient.publish(
           setup.mqttOptions.LogTin,
           "Setup updated to:\n" +
-            JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
+          JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
         );
         log("Archivo guardado correctamente");
         x();
