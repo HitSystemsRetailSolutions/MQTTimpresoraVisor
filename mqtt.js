@@ -295,61 +295,65 @@ async function autoSetupVisor(message) {
 }
 
 function imprimir(imprimirArray = [], device, options) {
-  return new Promise((resolve, reject) => {
-    const printer = new escpos.Printer(device);
-    let size = [0, 0];
-    let qr = undefined;
-    device.open(function () {
-      printer.font("A").setCharacterCodeTable(19).encode("cp858").align("ct");
-      let ejecutarImprimirLogo = false;
-      if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
-        ejecutarImprimirLogo = true;
-      }
-
-      for (const linea of imprimirArray) {
-        if (linea.tipo != "cut") {
-          if (linea.tipo == "qrimage") {
-            qr = linea;
-          } else if (linea.tipo == "logo" && ejecutarImprimirLogo) {
-            try {
-              printer.image(impresion.logo);
-            } catch (error) {
-              setup.printerOptions.imprimirLogo = false;
-              options.imprimirLogo = false;
-              ejecutarImprimirLogo = false;
-              console.log("Error al imprimir logo:", error);
-            }
-          } else if (linea.tipo == "size") {
-            if (Array.isArray(linea.payload)) {
-              size = linea.payload;
-            }
-          } else {
-            const printerWithSize = printer.size(size[0], size[1]);
-            if (typeof printerWithSize[linea.tipo] === "function") {
-              if (typeof linea.payload != "object")
-                printerWithSize[linea.tipo](linea.payload);
-              else printerWithSize[linea.tipo](...linea.payload);
-            } else {
-              console.log(
-                `Advertencia: El tipo '${linea.tipo}' no es un método válido de la impresora`
-              );
-            }
-          }
-        } else if (!qr) {
-          printer.cut();
+  try {
+    return new Promise((resolve, reject) => {
+      const printer = new escpos.Printer(device);
+      let size = [0, 0];
+      let qr = undefined;
+      device.open(function () {
+        printer.font("A").setCharacterCodeTable(19).encode("cp858").align("ct");
+        let ejecutarImprimirLogo = false;
+        if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
+          ejecutarImprimirLogo = true;
         }
-      }
 
-      if (qr)
-        printer.qrimage(qr.payload, { type: "png", size: 4 }, function (err) {
-          this.text("\n\n\n");
-          this.cut();
-          this.close();
-          resolve();
-        });
-      else printer.close(resolve);
+        for (const linea of imprimirArray) {
+          if (linea.tipo != "cut") {
+            if (linea.tipo == "qrimage") {
+              qr = linea;
+            } else if (linea.tipo == "logo" && ejecutarImprimirLogo) {
+              try {
+                printer.image(impresion.logo);
+              } catch (error) {
+                setup.printerOptions.imprimirLogo = false;
+                options.imprimirLogo = false;
+                ejecutarImprimirLogo = false;
+                console.log("Error al imprimir logo:", error);
+              }
+            } else if (linea.tipo == "size") {
+              if (Array.isArray(linea.payload)) {
+                size = linea.payload;
+              }
+            } else {
+              const printerWithSize = printer.size(size[0], size[1]);
+              if (typeof printerWithSize[linea.tipo] === "function") {
+                if (typeof linea.payload != "object")
+                  printerWithSize[linea.tipo](linea.payload);
+                else printerWithSize[linea.tipo](...linea.payload);
+              } else {
+                console.log(
+                  `Advertencia: El tipo '${linea.tipo}' no es un método válido de la impresora`
+                );
+              }
+            }
+          } else if (!qr) {
+            printer.cut();
+          }
+        }
+
+        if (qr)
+          printer.qrimage(qr.payload, { type: "png", size: 4 }, function (err) {
+            this.text("\n\n\n");
+            this.cut();
+            this.close();
+            resolve();
+          });
+        else printer.close(resolve);
+      });
     });
-  });
+  } catch (err) {
+    log(`❗ Error al imprimir: ${err.message}`);
+  }
 }
 
 async function ImpresoraUSB(msg, options) {
