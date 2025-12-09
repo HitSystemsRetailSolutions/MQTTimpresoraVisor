@@ -133,6 +133,9 @@ async function initBalanza() {
       bufferPeso = bufferPeso.slice(-6);
     });
 
+    serialBalanca.on("open", () => {
+      log(" -> Balanza inicializada ✓");
+    });
     serialBalanca.on("error", (err) => {
       log("❗ Error en balanza: " + err.message);
     });
