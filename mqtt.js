@@ -120,37 +120,17 @@ async function initBalanza() {
     let bufferPeso = "";
 
     serialBalanca.on("data", (chunk) => {
-      chunk = chunk.toString().trim();
-      if (!chunk) return;
+      bufferPeso += chunk.toString();
 
-      bufferPeso += chunk;
+      // Buscar todos los pesos válidos: XXX.XXX o 0000000
+      let matches = bufferPeso.match(/(\d{3}\.\d{3}|0000000)/g);
 
-      // La balanza envía siempre 7 caracteres (ej: 000.490)
-      while (bufferPeso.length >= 7) {
-        let peso = bufferPeso.slice(0, 7);
-        bufferPeso = bufferPeso.slice(7);
-
-        let pesoStr = peso.replace(/^0+(?=\d)/, "");
-
-        if (pesoStr !== "000.000") {
-          lastPesEstable = lastPes;
-          lastPes = pesoStr;
-
-          if (lastPesEstable === lastPes && !avisat) {
-            logger.Info("Peso estable: " + lastPes);
-            mqttClient.publish("hit/hardware/pes", lastPes);
-            avisat = true;
-          } else if (lastPesEstable !== lastPes) {
-            avisat = false;
-          }
-        } else {
-          avisat = false;
-        }
+      if (matches) {
+        matches.forEach((peso) => procesarPeso(peso));
       }
-    });
 
-    serialBalanca.on("open", () => {
-      log(" -> Balanza inicializada ✓");
+      // Guardar los últimos 6 caracteres por si quedó un trozo incompleto
+      bufferPeso = bufferPeso.slice(-6);
     });
 
     serialBalanca.on("error", (err) => {
@@ -160,6 +140,35 @@ async function initBalanza() {
     log("❗ Error al inicializar la balanza: " + e);
   }
 }
+function procesarPeso(pesoRaw) {
+  let pesoStr;
+
+  if (pesoRaw === "0000000") {
+    pesoStr = "0.000";
+  } else if (/^\d{3}\.\d{3}$/.test(pesoRaw)) {
+    pesoStr = pesoRaw.replace(/^0+(?=\d)/, "");
+  } else {
+    // Lectura inválida
+    return;
+  }
+
+  // Solo publicar si cambia respecto al último valor
+  if (pesoStr !== lastPes) {
+    lastPesEstable = lastPes;
+    lastPes = pesoStr;
+
+    logger.Info("Peso estable: " + lastPes);
+    mqttClient.publish("hit/hardware/pes", lastPes);
+
+    // Reset de aviso si no es cero
+    avisat = pesoStr !== "0.000";
+  } else if (pesoStr !== "0.000" && lastPesEstable !== lastPes) {
+    // lógica de peso estable normal
+    lastPesEstable = lastPes;
+    avisat = false;
+  }
+}
+
 
 function testPrinter() {
   if (setup.printerOptions.isUsbPrinter) {

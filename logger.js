@@ -1,8 +1,9 @@
+const path = require("path");
 const logger = require("node-file-logger");
 
 const options = {
     timeZone: "Europe/Madrid",
-    folderPath: "./logs/",
+    folderPath: path.join(__dirname, "logs"),
     dateBasedFileNaming: true,
     fileNamePrefix: "logMQTTimpresora_",
     fileNameExtension: ".log",
