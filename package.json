@@ -1,33 +1,10 @@
 {
-  "name": "SerialMQTTGatewayJS",
+  "name": "MQTTimpresoraVisor",
   "version": "1.0.1",
-  "keywords": [
-    "serial",
-    "usb",
-    "port",
-    "mqtt",
-    "broker",
-    "bidirectional",
-    "dual",
-    "gateway",
-    "topic",
-    "mosquitto",
-    "iot",
-    "arduino",
-    "nodejs"
-  ],
-  "description": "NodeJS serial to MQTT, MQTT to serial bidirectional gateway",
+  "description": "",
   "main": "index.js",
   "license": "MIT",
-  "author": "Fabvalaaah",
-  "email": "fabvalaaah@laposte.net",
-  "contributors": [
-    "Fabvalaaah"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/fabvalaaah/SerialMQTTGatewayJS.git"
-  },
+  "author": "",
   "scripts": {
     "start": "node index.js"
   },
@@ -39,6 +16,7 @@
     "escpos-usb": "^3.0.0-alpha.4",
     "jimp": "^0.22.8",
     "mqtt": "^3.0.0",
+    "node-file-logger": "^0.9.5",
     "path": "^0.12.7",
     "serialport": "10.0.0",
     "usb": "^1.9.2"

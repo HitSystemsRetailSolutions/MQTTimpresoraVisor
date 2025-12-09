@@ -13,6 +13,7 @@ let dir = require("path").dirname(require.main.filename);
 let setup = require(dir + "/setup.json");
 // iniciamos variables necesarias
 const mqttClient = MQTT.connect(setup.mqttOptions.mqtt);
+const { logger } = require("./logger.js");
 
 //Global Vars
 let serialVisor = undefined;
@@ -136,6 +137,7 @@ async function initBalanza() {
           lastPes = pesoStr;
 
           if (lastPesEstable === lastPes && !avisat) {
+            logger.Info("Peso estable: " + lastPes);
             mqttClient.publish("hit/hardware/pes", lastPes);
             avisat = true;
           } else if (lastPesEstable !== lastPes) {
