@@ -312,13 +312,15 @@ function imprimir(imprimirArray = [], device, options) {
             if (linea.tipo == "qrimage") {
               qr = linea;
             } else if (linea.tipo == "logo" && ejecutarImprimirLogo) {
-              try {
-                printer.image(impresion.logo);
-              } catch (error) {
-                setup.printerOptions.imprimirLogo = false;
-                options.imprimirLogo = false;
-                ejecutarImprimirLogo = false;
-                console.log("Error al imprimir logo:", error);
+              if (impresion.logo) {
+                try {
+                  printer.image(impresion.logo);
+                } catch (error) {
+                  setup.printerOptions.imprimirLogo = false;
+                  options.imprimirLogo = false;
+                  ejecutarImprimirLogo = false;
+                  console.log("Error al imprimir logo:", error);
+                }
               }
             } else if (linea.tipo == "size") {
               if (Array.isArray(linea.payload)) {
@@ -569,31 +571,39 @@ mqttClient.on("message", async function (topic, message) {
         : ImpresoraSerial(arrayImprimir, options);
     } else if (topic == "hit.hardware/logo") {
       const buffer = Buffer.from(mensaje.logo, "hex");
-      await Jimp.read(buffer)
-        .then(async (fotico) => {
-          // Redimensionar para impresora de 80mm: 512px de ancho óptimo
-          const maxWidth = setup.printerOptions.logoWidth || 512;
-          if (fotico.getWidth() > maxWidth) {
-            fotico.resize(maxWidth, Jimp.AUTO);
-          }
-          // Aplicar filtros para impresión térmica óptima
-          fotico
-            .greyscale() // Convertir a escala de grises
-            .normalize() // Normalizar niveles
-            .contrast(0.5) // Aumentar contraste
-            .brightness(-0.1); // Reducir brillo ligeramente
+      try {
+        const fotico = await Jimp.read(buffer);
+        // Redimensionar para impresora de 80mm: 512px de ancho óptimo
+        const maxWidth = setup.printerOptions.logoWidth || 512;
+        if (fotico.getWidth() > maxWidth) {
+          fotico.resize(maxWidth, Jimp.AUTO);
+        }
+        // Aplicar filtros para impresión térmica óptima
+        fotico
+          .greyscale() // Convertir a escala de grises
+          .normalize() // Normalizar niveles
+          .contrast(0.5) // Aumentar contraste
+          .brightness(-0.1); // Reducir brillo ligeramente
 
-          const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
-          escpos.Image.load(fotico2, Jimp.MIME_PNG, function (image) {
-            impresion.logo = image;
-            setup.printerOptions.imprimirLogo = true;
+        const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
+
+        // Cargar correctamente la imagen como escpos.Image
+        const image = await new Promise((resolve, reject) => {
+          escpos.Image.load(fotico2, Jimp.MIME_PNG, function (img) {
+            if (!img) return reject(new Error("Logo inválido"));
+            resolve(img);
           });
-        })
-        .catch((e) => {
-          log(" ❗ Error al cargar logo: " + e);
-          impresion.logo = null;
-          setup.printerOptions.imprimirLogo = false;
         });
+
+        // Asignar el logo solo si es válido
+        impresion.logo = image;
+        setup.printerOptions.imprimirLogo = true;
+        log(" -> Logo cargado correctamente ✓");
+      } catch (e) {
+        log(" ❗ Error al cargar logo: " + e);
+        impresion.logo = null;
+        setup.printerOptions.imprimirLogo = false;
+      }
     } else if (topic.includes("hit.hardware/printerIP/")) {
       if (
         setup.comanderoPrinterOptions.printers.find(
