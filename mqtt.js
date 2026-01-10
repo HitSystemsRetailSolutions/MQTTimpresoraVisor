@@ -399,6 +399,17 @@ async function ImpresoraSerial(msg, options) {
   });
   try {
     await imprimir(msg, serialDevice, options);
+    let tiempoEspera = 200; // Base mínima
+
+    msg.forEach((linea) => {
+      if (linea.tipo === "logo")
+        tiempoEspera += 1200; // El logo es lo más pesado
+      else if (linea.tipo === "qrimage") tiempoEspera += 500;
+      else if (linea.tipo === "text")
+        tiempoEspera += 25; // 25ms por cada línea de texto
+      else if (linea.tipo === "cut") tiempoEspera += 300;
+    });
+    await new Promise((resolve) => setTimeout(resolve, tiempoEspera));
   } finally {
     serialPrinting = false;
   }
@@ -566,7 +577,7 @@ mqttClient.on("message", async function (topic, message) {
       if (topic != "hit.hardware/visor") mensaje = JSON.parse(mensaje);
     if (topic == "hit.hardware/printer") {
       // nuevo formato en /printer para multiples mensajes y opciones
-      if (Array.isArray(mensaje.operaciones)) {
+      if (Array.isArray(mensaje?.operaciones)) {
         for (const op of mensaje.operaciones) {
           const { arrayImprimir, options } = op;
           logger.Info(
