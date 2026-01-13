@@ -385,6 +385,19 @@ async function ImpresoraUSB(msg, options) {
 }
 
 let serialPrinting = false;
+
+function calcularTiempoEsperaImpresion(msg) {
+  let tiempoEspera = 200; // Base mínima
+  msg.forEach((linea) => {
+    if (linea.tipo === "logo") tiempoEspera += 1200; // El logo es lo más pesado
+    else if (linea.tipo === "qrimage") tiempoEspera += 500;
+    else if (linea.tipo === "text")
+      tiempoEspera += 25; // 25ms por cada línea de texto
+    else if (linea.tipo === "cut") tiempoEspera += 300;
+  });
+  return tiempoEspera;
+}
+
 async function ImpresoraSerial(msg, options) {
   if (serialPrinting) {
     log("⚠️ Esperando a que termine la impresión serial anterior...");
@@ -399,16 +412,7 @@ async function ImpresoraSerial(msg, options) {
   });
   try {
     await imprimir(msg, serialDevice, options);
-    let tiempoEspera = 200; // Base mínima
-
-    msg.forEach((linea) => {
-      if (linea.tipo === "logo")
-        tiempoEspera += 1200; // El logo es lo más pesado
-      else if (linea.tipo === "qrimage") tiempoEspera += 500;
-      else if (linea.tipo === "text")
-        tiempoEspera += 25; // 25ms por cada línea de texto
-      else if (linea.tipo === "cut") tiempoEspera += 300;
-    });
+    const tiempoEspera = calcularTiempoEsperaImpresion(msg);
     await new Promise((resolve) => setTimeout(resolve, tiempoEspera));
   } finally {
     serialPrinting = false;
@@ -423,6 +427,12 @@ function ImpresoraIP(msg, options) {
     const device = new escpos.Network(options.ip, options.port);
 
     imprimir(msg, device, options);
+    const tiempoEspera = calcularTiempoEsperaImpresion(msg);
+    return new Promise((resolve) =>
+      setTimeout(() => {
+        resolve();
+      }, tiempoEspera)
+    );
   } catch (err) {
     log(`❗ Error al imprimir por IP: ${err.message}`);
   }
@@ -650,17 +660,24 @@ mqttClient.on("message", async function (topic, message) {
         setup.printerOptions.imprimirLogo = false;
       }
     } else if (topic.includes("hit.hardware/printerIP/")) {
-      if (
-        setup.comanderoPrinterOptions.printers.find(
-          (x) => "hit.hardware/printerIP/" + x.name == topic
-        )
-      ) {
-        const { arrayImprimir, options } = mensaje;
-        const ipPrinter = setup.comanderoPrinterOptions.printers.find(
-          (x) => "hit.hardware/printerIP/" + x.name == topic
-        );
-        if (ipPrinter) {
-          ImpresoraIP(arrayImprimir, {
+      const ipPrinter = setup.comanderoPrinterOptions.printers.find(
+        (x) => "hit.hardware/printerIP/" + x.name == topic
+      );
+      if (ipPrinter) {
+        // Si mensaje contiene operaciones (array), iterar sobre ellas
+        if (Array.isArray(mensaje?.operaciones)) {
+          for (const op of mensaje.operaciones) {
+            const { arrayImprimir, options } = op;
+            await ImpresoraIP(arrayImprimir, {
+              ...options,
+              ip: ipPrinter.ip,
+              port: ipPrinter.port,
+            });
+          }
+        } else {
+          // Versión actual para un solo mensaje
+          const { arrayImprimir, options } = mensaje;
+          await ImpresoraIP(arrayImprimir, {
             ...options,
             ip: ipPrinter.ip,
             port: ipPrinter.port,
