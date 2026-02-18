@@ -310,6 +310,20 @@ async function printerComanderoOptions() {
           });
 
           clearConsole();
+       await ask("❓ Tiene impresora STAR? [ Si / No ] ").then(async (answer) => {
+        if (answer) {
+          setup.comanderoPrinterOptions.printers[i].isStar = true;
+          header += "\n🔧 Tiene impresora STAR: ✔️  Activado";
+          clearConsole();
+        } else {
+          setup.comanderoPrinterOptions.printers[i].isStar = false;
+          header += "\n🔧 Tiene impresora STAR: ❌ Desactivado";
+          clearConsole();
+        }
+      });
+
+
+
           await askTXT(
             `❓ IP de la impresora ${i + 1} (default: 0.0.0.0) `
           ).then(async (answer) => {

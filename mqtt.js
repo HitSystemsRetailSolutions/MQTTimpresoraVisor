@@ -300,7 +300,29 @@ function imprimir(imprimirArray = [], device, options) {
       let size = [0, 0];
       let qr = undefined;
       device.open(async function () {
-        printer.font("A").setCharacterCodeTable(19).encode("cp858").align("ct");
+        // Helpers para modo Star
+        const starAlign = (align) => {
+          let n = "0"; // Left
+          if (align.toUpperCase() === "CT" || align.toUpperCase() === "CENTER") n = "1";
+          else if (align.toUpperCase() === "RT" || align.toUpperCase() === "RIGHT") n = "2";
+          printer.buffer.write(Buffer.from([0x1b, 0x1d, 0x61, n.charCodeAt(0)]));
+        };
+        const starBold = (on) => {
+          printer.buffer.write(Buffer.from([0x1b, on ? 0x45 : 0x46]));
+        };
+        const starSize = (h, w) => {
+          printer.buffer.write(Buffer.from([0x1b, 0x69, h ? 0x31 : 0x30, w ? 0x31 : 0x30]));
+        };
+        const starCut = (partial = false) => {
+          printer.buffer.write(Buffer.from([0x1b, 0x64, partial ? 3 : 2]));
+        };
+
+        if (options?.isStar) {
+          starAlign("CT"); // Default Star
+        } else {
+          printer.font("A").setCharacterCodeTable(19).encode("cp858").align("ct");
+        }
+
         let ejecutarImprimirLogo = false;
         if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
           ejecutarImprimirLogo = true;
@@ -322,20 +344,29 @@ function imprimir(imprimirArray = [], device, options) {
                 }
               }
             } else if (linea.tipo == "size") {
-              if (Array.isArray(linea.payload)) {
-                size = linea.payload;
+              if (options?.isStar) {
+                if (Array.isArray(linea.payload)) starSize(linea.payload[0], linea.payload[1]);
+              } else {
+                if (Array.isArray(linea.payload)) size = linea.payload;
+              }
+            } else if (linea.tipo === "style") {
+              if (options?.isStar) {
+                starBold(linea.payload === "b" || linea.payload === "B");
+              }
+            } else if (linea.tipo === "align") {
+              if (options?.isStar) {
+                starAlign(linea.payload);
               }
             } else if (linea.tipo === "cashdraw") {
               printer[linea.tipo](linea.payload);
-              // espera al usar cashdraw para evitar posibles cortes de impresión
               await new Promise((resolve) => setTimeout(resolve, 200));
             } else {
-              const printerWithSize = printer.size(size[0], size[1]);
+              const p = options?.isStar ? printer : printer.size(size[0], size[1]);
 
-              if (typeof printerWithSize[linea.tipo] === "function") {
+              if (typeof p[linea.tipo] === "function") {
                 if (typeof linea.payload != "object")
-                  printerWithSize[linea.tipo](linea.payload);
-                else printerWithSize[linea.tipo](...linea.payload);
+                  p[linea.tipo](linea.payload);
+                else p[linea.tipo](...linea.payload);
               } else {
                 console.log(
                   `Advertencia: El tipo '${linea.tipo}' no es un método válido de la impresora`
@@ -343,14 +374,19 @@ function imprimir(imprimirArray = [], device, options) {
               }
             }
           } else if (!qr) {
-            printer.cut();
+            if (options?.isStar) starCut();
+            else printer.cut();
           }
         }
 
         if (qr)
           printer.qrimage(qr.payload, { type: "png", size: 4 }, function (err) {
-            this.text("\n\n\n");
-            this.cut();
+            if (options?.isStar) {
+              starCut();
+            } else {
+              this.text("\n\n\n");
+              this.cut();
+            }
             this.close();
             resolve();
           });
@@ -419,20 +455,16 @@ async function ImpresoraSerial(msg, options) {
   }
 }
 
-function ImpresoraIP(msg, options) {
+async function ImpresoraIP(msg, options) {
   try {
     if (!options.ip || !options.port) {
       return log("❗ Error: Faltan datos de IP o puerto en el mensaje.");
     }
     const device = new escpos.Network(options.ip, options.port);
 
-    imprimir(msg, device, options);
+    await imprimir(msg, device, options);
     const tiempoEspera = calcularTiempoEsperaImpresion(msg);
-    return new Promise((resolve) =>
-      setTimeout(() => {
-        resolve();
-      }, tiempoEspera)
-    );
+    await new Promise((resolve) => setTimeout(resolve, tiempoEspera));
   } catch (err) {
     log(`❗ Error al imprimir por IP: ${err.message}`);
   }
@@ -620,10 +652,11 @@ mqttClient.on("message", async function (topic, message) {
     } else if (topic == "hit.hardware/visor") {
       Visor(mensaje);
     } else if (topic == "hit.hardware/cajon") {
-      options.abrirCajon = true;
+      const { arrayImprimir, options: optCajon } = mensaje;
+      optCajon.abrirCajon = true;
       setup.printerOptions.isUsbPrinter
-        ? ImpresoraUSB(arrayImprimir, options)
-        : ImpresoraSerial(arrayImprimir, options);
+        ? await ImpresoraUSB(arrayImprimir, optCajon)
+        : await ImpresoraSerial(arrayImprimir, optCajon);
     } else if (topic == "hit.hardware/logo") {
       const buffer = Buffer.from(mensaje.logo, "hex");
       try {
@@ -672,6 +705,7 @@ mqttClient.on("message", async function (topic, message) {
               ...options,
               ip: ipPrinter.ip,
               port: ipPrinter.port,
+              isStar: ipPrinter.isStar,
             });
           }
         } else {
@@ -681,6 +715,7 @@ mqttClient.on("message", async function (topic, message) {
             ...options,
             ip: ipPrinter.ip,
             port: ipPrinter.port,
+            isStar: ipPrinter.isStar,
           });
         }
       }
