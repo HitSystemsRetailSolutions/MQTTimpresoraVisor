@@ -14,11 +14,13 @@
     "escpos-network": "^3.0.0-alpha.5",
     "escpos-serialport": "^3.0.0-alpha.4",
     "escpos-usb": "^3.0.0-alpha.4",
+    "express": "^4.21.0",
     "jimp": "^0.22.8",
     "mqtt": "^3.0.0",
     "node-file-logger": "^0.9.5",
     "path": "^0.12.7",
     "serialport": "10.0.0",
-    "usb": "^1.9.2"
+    "usb": "^1.9.2",
+    "ws": "^8.18.0"
   }
 }

@@ -7,6 +7,10 @@ const Jimp = require("jimp");
 const fs = require("fs");
 const axios = require("axios");
 escpos.Serial = require("escpos-serialport");
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const WebSocket = require('ws');
 escpos.Network = require("escpos-network");
 // cargamos la configuracion
 let dir = require("path").dirname(require.main.filename);
@@ -502,12 +506,12 @@ function x() {
 mqttClient.on("message", async function (topic, message) {
   try {
     if (topic == "hit.hardware/autoSetupPrinter") {
-      console.log(">>", JSON.parse(message));
+      console.log(">>", JSON.parse(message))
       autoSetupPrinter(message);
       return null;
     }
     if (topic == "hit.hardware/autoSetupVisor") {
-      console.log(">>", JSON.parse(message));
+      console.log(">>", JSON.parse(message))
       autoSetupVisor(message);
       return null;
     }
@@ -626,27 +630,14 @@ mqttClient.on("message", async function (topic, message) {
         : ImpresoraSerial(arrayImprimir, options);
     } else if (topic == "hit.hardware/logo") {
       const buffer = Buffer.from(mensaje.logo, "hex");
-      try {
-        const fotico = await Jimp.read(buffer);
-        // Redimensionar para impresora de 80mm: 512px de ancho óptimo
-        const maxWidth = setup.printerOptions.logoWidth || 512;
-        if (fotico.getWidth() > maxWidth) {
-          fotico.resize(maxWidth, Jimp.AUTO);
-        }
-        // Aplicar filtros para impresión térmica óptima
-        fotico
-          .greyscale() // Convertir a escala de grises
-          .normalize() // Normalizar niveles
-          .contrast(0.5) // Aumentar contraste
-          .brightness(-0.1); // Reducir brillo ligeramente
-
-        const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
-
-        // Cargar correctamente la imagen como escpos.Image
-        const image = await new Promise((resolve, reject) => {
-          escpos.Image.load(fotico2, Jimp.MIME_PNG, function (img) {
-            if (!img) return reject(new Error("Logo inválido"));
-            resolve(img);
+      const logoPath = path.join(__dirname, 'public', 'logo.png');
+      await Jimp.read(buffer)
+        .then(async (fotico) => {
+          const fotico2 = await fotico.getBufferAsync(Jimp.MIME_PNG);
+          await fotico.writeAsync(logoPath);
+          escpos.Image.load(fotico2, Jimp.MIME_PNG, function (image) {
+            impresion.logo = image;
+            setup.printerOptions.imprimirLogo = true;
           });
         });
 
@@ -690,4 +681,32 @@ mqttClient.on("message", async function (topic, message) {
 
     log("Error en MQTT: \n" + e + " > > " + topic + " > > " + message);
   }
+});
+
+// Crear servidor Express para servir HTML
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Cuando un cliente se conecta al WebSocket
+wss.on('connection', (ws) => {
+  console.log('Nuevo cliente conectado al visor');
+
+  // Enviar mensajes del visor al cliente conectado
+  mqttClient.on('message', function (topic, message) {
+    if (topic == "hit.hardware/visor") {
+      ws.send(message.toString());
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('Cliente desconectado');
+  });
+});
+
+// Iniciar servidor en el puerto 8888
+server.listen(8888, () => {
+  console.log('Servidor web escuchando en http://localhost:8888');
 });

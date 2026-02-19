@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visor Tocgame</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
+    />
+    <style>
+      body {
+        font-family: "Roboto", sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #fff5e9;
+        position: relative;
+      }
+
+      .logo {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        width: 350px;
+        height: auto;
+      }
+
+      .message {
+        font-size: 8vw;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        max-width: 80%;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+        font-weight: 400;
+      }
+
+      .time {
+        position: absolute;
+        bottom: 6px;
+        right: 12px;
+        font-size: 3.5vw;
+        color: #333;
+      }
+
+      @media (max-width: 600px) {
+        .message {
+          font-size: 8vw;
+        }
+        .time {
+          font-size: 4vw;
+        }
+      }
+
+      @media (min-width: 1200px) {
+        .message {
+          font-size: 3vw;
+        }
+        .time {
+          font-size: 1.5vw;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="logo-container"></div>
+    <div id="message" class="message">Bon dia!</div>
+    <div id="time" class="time"></div>
+
+    <script>
+      const ws = new WebSocket("ws://localhost:8888");
+
+      function addLineBreaks(text, limit) {
+        const regex = new RegExp(`(.{1,${limit}})`, "g");
+        return text.match(regex).join("\n");
+      }
+
+      ws.onmessage = function (event) {
+        let message = event.data;
+        message = addLineBreaks(message, 20);
+        document.getElementById("message").textContent = message;
+      };
+
+      // Función para actualizar la hora en tiempo real
+      function updateTime() {
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString();
+        document.getElementById("time").textContent = formattedTime;
+      }
+
+      setInterval(updateTime, 1000); // Actualizar la hora cada segundo
+      updateTime();
+
+      // Verificar si el archivo logo.png existe
+      fetch("logo.png")
+        .then(response => {
+          if (response.ok) {
+            const logoContainer = document.getElementById("logo-container");
+            const logo = document.createElement("img");
+            logo.src = "logo.png";
+            logo.alt = "Logo";
+            logo.className = "logo";
+            logoContainer.appendChild(logo);
+          }
+        })
+        .catch(error => {
+          console.log("El archivo logo.png no existe.");
+        });
+    </script>
+  </body>
+</html>
