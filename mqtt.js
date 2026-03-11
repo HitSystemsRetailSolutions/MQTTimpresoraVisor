@@ -267,7 +267,7 @@ async function autoSetupVisor(message) {
     setup.visorOptions.portVisor === "/dev/" + data.value &&
     setup.GlobalOptions.visor
   ) {
-    return Visor("¡Hola, soy el visor!\n");
+    return Visor("Hola, soy el visor!\n");
   }
 
   try {
@@ -276,7 +276,7 @@ async function autoSetupVisor(message) {
 
     if (res) {
       sv = new SerialPort(path, { baudRate: data.rate });
-      sv.write("¡Hola, soy el visor!\n", (err) => {
+      sv.write("Hola, soy el visor!\n", (err) => {
         if (err) {
           console.log("Error al escribir en el puerto serie:", err);
         } else {
