@@ -52,8 +52,8 @@ async function initializer() {
   } catch (e) {
     log(
       " ❗ Error urgente: Error al iniciar MQTT\nError --> " +
-        e +
-        "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
+      e +
+      "\n     - Solucion --> Revisar la configuracion de MQTT en el archivo setup.js\n"
     );
   }
   initBalanza();
@@ -68,8 +68,8 @@ async function initializer() {
     } catch (e) {
       log(
         " ❗ Error urgente: Error al inicializar el visor\n     - Error --> " +
-          e +
-          "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
+        e +
+        "\n     - Solucion --> Revisar la configuracion del visor en el archivo setup.js\n"
       );
     }
   }
@@ -144,12 +144,13 @@ async function initBalanza() {
   }
 }
 function procesarPeso(pesoRaw) {
+  const pesoClean = pesoRaw.trim();
   let pesoStr;
 
-  if (pesoRaw === "0000000") {
+  if (pesoClean === "0000000") {
     pesoStr = "0.000";
-  } else if (/^\d{3}\.\d{3}$/.test(pesoRaw)) {
-    pesoStr = pesoRaw.replace(/^0+(?=\d)/, "");
+  } else if (/^\d{3}\.\d{3}$/.test(pesoClean)) {
+    pesoStr = pesoClean.replace(/^0+(?=\d)/, "");
   } else {
     // Lectura inválida
     return;
@@ -359,8 +360,7 @@ function imprimir(imprimirArray = [], device, options) {
     });
   } catch (err) {
     logger.Error(
-      `❗ Error al imprimir '${options?.tipo || "sin tipo"}' en imprimir(): ${
-        err.message
+      `❗ Error al imprimir '${options?.tipo || "sin tipo"}' en imprimir(): ${err.message
       }`
     );
 
@@ -576,7 +576,7 @@ mqttClient.on("message", async function (topic, message) {
         mqttClient.publish(
           setup.mqttOptions.LogTin,
           "Setup updated to:\n" +
-            JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
+          JSON.stringify(Buffer.from(message, "binary").toString("utf8"))
         );
         log("Archivo guardado correctamente");
         x();
