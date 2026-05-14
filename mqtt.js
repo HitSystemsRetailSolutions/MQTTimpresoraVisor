@@ -178,6 +178,7 @@ function testPrinter() {
     const imprimirUSB = (device) => {
       imprimir(
         [
+          { tipo: "hardware", payload: "init" },
           { tipo: "font", payload: "a" },
           { tipo: "align", payload: "ct" },
           { tipo: "setCharacterCodeTable", payload: 19 },
@@ -220,6 +221,7 @@ function testPrinter() {
     });
     imprimir(
       [
+        { tipo: "hardware", payload: "init" },
         { tipo: "font", payload: "a" },
         { tipo: "align", payload: "ct" },
         { tipo: "setCharacterCodeTable", payload: 19 },
@@ -301,7 +303,9 @@ function imprimir(imprimirArray = [], device, options) {
       let size = [0, 0];
       let qr = undefined;
       device.open(async function () {
-        printer.font("A").setCharacterCodeTable(19).encode("cp858").align("ct");
+        // Pequeña espera para estabilizar la conexión tras la apertura
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        printer.hardware("init").font("A").setCharacterCodeTable(19).encode("cp858").align("ct");
         let ejecutarImprimirLogo = false;
         if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
           ejecutarImprimirLogo = true;
@@ -449,6 +453,7 @@ function autoSetupPrinter(x) {
     const imprimirUSB = (device) => {
       imprimir(
         [
+          { tipo: "hardware", payload: "init" },
           { tipo: "font", payload: "a" },
           { tipo: "align", payload: "ct" },
           { tipo: "setCharacterCodeTable", payload: 19 },
@@ -479,6 +484,7 @@ function autoSetupPrinter(x) {
     });
     imprimir(
       [
+        { tipo: "hardware", payload: "init" },
         { tipo: "font", payload: "a" },
         { tipo: "align", payload: "ct" },
         { tipo: "setCharacterCodeTable", payload: 19 },
