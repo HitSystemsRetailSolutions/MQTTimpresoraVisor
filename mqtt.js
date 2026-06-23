@@ -203,12 +203,18 @@ function testPrinter() {
     } else {
       try {
         const devices = escpos.USB.findPrinter();
-        devices.forEach((el) => {
-          const device = new escpos.USB(el);
-          imprimirUSB(device);
-        });
+        if (Array.isArray(devices)) {
+          devices.forEach((el) => {
+            try {
+              const device = new escpos.USB(el);
+              imprimirUSB(device);
+            } catch (deviceError) {
+              log("❗ Error al conectar con un dispositivo USB en testPrinter: " + deviceError);
+            }
+          });
+        }
       } catch (error) {
-        log("❗ Error urgente: Error al conectar la impresora USB: " + error);
+        log("❗ Error urgente: Error al buscar impresoras USB en testPrinter: " + error);
       }
     }
   } else {
@@ -290,21 +296,25 @@ async function autoSetupVisor(message) {
 }
 
 function imprimir(imprimirArray = [], device, options) {
-  try {
-    return new Promise((resolve, reject) => {
-      const printer = new escpos.Printer(device);
-      let size = [0, 0];
-      let qr = undefined;
-      device.open(async function () {
-        // Pequeña espera para estabilizar la conexión tras la apertura
+  return new Promise((resolve, reject) => {
+    const printer = new escpos.Printer(device);
+    let size = [0, 0];
+    let qr = undefined;
+    // Recibir el parámetro de error 'err' en open()
+    device.open(async function (err) {
+      if (err) {
+        return reject(err); // Rechaza si hay error al abrir el puerto/dispositivo
+      }
+
+      try {
         await new Promise((resolve) => setTimeout(resolve, 50));
+
         printer.hardware("init").font("A").setCharacterCodeTable(19).encode("cp858").align("ct");
         let ejecutarImprimirLogo = false;
         if (setup.printerOptions.imprimirLogo && options?.imprimirLogo) {
           ejecutarImprimirLogo = true;
         }
-
-        for (const linea of imprimirArray) {
+        for (const linea of imprimirArray || []) {
           if (linea.tipo != "cut") {
             if (linea.tipo == "qrimage") {
               qr = linea;
@@ -325,11 +335,9 @@ function imprimir(imprimirArray = [], device, options) {
               }
             } else if (linea.tipo === "cashdraw") {
               printer[linea.tipo](linea.payload);
-              // espera al usar cashdraw para evitar posibles cortes de impresión
               await new Promise((resolve) => setTimeout(resolve, 200));
             } else {
               const printerWithSize = printer.size(size[0], size[1]);
-
               if (typeof printerWithSize[linea.tipo] === "function") {
                 if (typeof linea.payload != "object") printerWithSize[linea.tipo](linea.payload);
                 else printerWithSize[linea.tipo](...linea.payload);
@@ -341,25 +349,66 @@ function imprimir(imprimirArray = [], device, options) {
             printer.cut();
           }
         }
-
-        if (qr)
-          printer.qrimage(qr.payload, { type: "png", size: 4 }, function (err) {
+        if (qr) {
+          printer.qrimage(qr.payload, { type: "png", size: 4 }, function (errQr) {
+            if (errQr) return reject(errQr);
             this.text("\n\n\n");
             this.cut();
             this.close();
             resolve();
           });
-        else printer.close(resolve);
-      });
+        } else {
+          printer.close(resolve);
+        }
+      } catch (error) {
+        reject(error); // Captura errores en tiempo de ejecución de comandos
+      }
     });
-  } catch (err) {
-    logger.Error(`❗ Error al imprimir '${options?.tipo || "sin tipo"}' en imprimir(): ${err.message}`);
-
-    log(`❗ Error al imprimir: ${err.message}`);
-  }
+  });
 }
 
 let usbPrinting = false;
+let usbDeviceInstance = undefined;
+
+function buscarDispositivoUSB() {
+  let devices = [];
+  try {
+    devices = escpos.USB.findPrinter();
+  } catch (errFind) {
+    logger.Error(`❗ Error al buscar impresoras USB (findPrinter): ${errFind.message}`);
+    return undefined;
+  }
+
+  if (!Array.isArray(devices) || devices.length === 0) {
+    return undefined;
+  }
+
+  if (devices.length === 1) {
+    return devices[0];
+  }
+
+  // Si encontrara más de un dispositivo comparar el puerto con printerOptions.port
+  const targetPort = setup.printerOptions.port;
+  if (targetPort) {
+    const matchPortNum = String(targetPort).match(/\d+/);
+    const targetPortNum = matchPortNum ? parseInt(matchPortNum[0], 10) : null;
+
+    for (const el of devices) {
+      const devicePort = el.portNumbers && el.portNumbers.length > 0 ? el.portNumbers[el.portNumbers.length - 1] : null;
+
+      if (
+        (targetPortNum !== null && devicePort === targetPortNum) ||
+        String(devicePort) === String(targetPort) ||
+        `USB${devicePort}`.toLowerCase() === String(targetPort).toLowerCase()
+      ) {
+        return el;
+      }
+    }
+  }
+
+  // si no coincide ninguna guardar la primera
+  return devices[0];
+}
 
 async function ImpresoraUSB(msg, options) {
   if (usbPrinting) {
@@ -371,18 +420,30 @@ async function ImpresoraUSB(msg, options) {
   usbPrinting = true;
   try {
     if (setup.printerOptions.useVidPid) {
-      let device = new escpos.USB(setup.printerOptions.vId, setup.printerOptions.pId);
-      await imprimir(msg, device, options);
-    } else {
-      var devices = escpos.USB.findPrinter();
-      for (const el of devices) {
-        const device = new escpos.USB(el);
-        logger.Info(new Date() + " Imprimiendo en impresora...\n", options?.tipo || "sin tipo");
-        await imprimir(msg, device, options);
+      if (!usbDeviceInstance) {
+        usbDeviceInstance = new escpos.USB(setup.printerOptions.vId, setup.printerOptions.pId);
       }
+      logger.Info(new Date() + " Imprimiendo en impresora (useVidPid)...\n", options?.tipo || "sin tipo");
+      await imprimir(msg, usbDeviceInstance, options);
+    } else {
+      if (!usbDeviceInstance) {
+        const el = buscarDispositivoUSB();
+        if (!el) {
+          throw new Error("No se encontró ninguna impresora USB en el sistema.");
+        }
+        usbDeviceInstance = new escpos.USB(el);
+      } else {
+        logger.Info("Reutilizando instancia de impresora USB");
+      }
+      logger.Info(new Date() + " Imprimiendo en impresora...\n", options?.tipo || "sin tipo");
+      await imprimir(msg, usbDeviceInstance, options);
     }
     const tiempoEspera = calcularTiempoEsperaImpresion(msg);
     await new Promise((resolve) => setTimeout(resolve, tiempoEspera));
+  } catch (error) {
+    logger.Error(`❗ Error en ImpresoraUSB: ${error.message}`);
+    usbDeviceInstance = undefined; // Vaciar la variable si falla la impresión
+    throw error; // Re-lanzar para que sea capturado en mqttClient.on("message")
   } finally {
     usbPrinting = false;
   }
@@ -392,6 +453,7 @@ let serialPrinting = false;
 
 function calcularTiempoEsperaImpresion(msg) {
   let tiempoEspera = 200; // Base mínima
+  if (!Array.isArray(msg)) return tiempoEspera;
   msg.forEach((linea) => {
     if (linea.tipo === "logo")
       tiempoEspera += 1200; // El logo es lo más pesado
@@ -419,6 +481,9 @@ async function ImpresoraSerial(msg, options) {
     await imprimir(msg, serialDevice, options);
     const tiempoEspera = calcularTiempoEsperaImpresion(msg);
     await new Promise((resolve) => setTimeout(resolve, tiempoEspera));
+  } catch (error) {
+    logger.Error(`❗ Error en ImpresoraSerial: ${error.message}`);
+    throw error; // Re-lanzar para que sea capturado en mqttClient.on("message")
   } finally {
     serialPrinting = false;
   }
@@ -473,11 +538,21 @@ function autoSetupPrinter(x) {
       const device = new escpos.USB(data.vid, data.pid);
       imprimirUSB(device);
     } else {
-      const devices = escpos.USB.findPrinter();
-      devices.forEach((el) => {
-        const device = new escpos.USB(el);
-        imprimirUSB(device);
-      });
+      try {
+        const devices = escpos.USB.findPrinter();
+        if (Array.isArray(devices)) {
+          devices.forEach((el) => {
+            try {
+              const device = new escpos.USB(el);
+              imprimirUSB(device);
+            } catch (deviceError) {
+              log("❗ Error al conectar con un dispositivo USB en autoSetupPrinter: " + deviceError);
+            }
+          });
+        }
+      } catch (error) {
+        log("❗ Error urgente: Error al buscar impresoras USB en autoSetupPrinter: " + error);
+      }
     }
   } else {
     const serialDevice = new escpos.Serial("/dev/" + data.value, {
@@ -568,7 +643,7 @@ mqttClient.on("message", async function (topic, message) {
       // nuevo formato en /printer para multiples mensajes y opciones
       if (Array.isArray(mensaje?.operaciones)) {
         for (const op of mensaje.operaciones) {
-          const { arrayImprimir, options } = op;
+          const { arrayImprimir = [], options = {} } = op || {};
           logger.Info("1Imprimiendo en impresora...", options?.tipo || "sin tipo");
 
           if (setup.printerOptions.isUsbPrinter) {
@@ -580,7 +655,7 @@ mqttClient.on("message", async function (topic, message) {
         return;
       } else {
         // formato antiguo de una sola operacion
-        let { arrayImprimir, options } = mensaje;
+        let { arrayImprimir = [], options = {} } = mensaje || {};
         logger.Info("2Imprimiendo en impresora...", options?.tipo || "sin tipo");
 
         if (setup.printerOptions.isUsbPrinter) {
@@ -593,6 +668,7 @@ mqttClient.on("message", async function (topic, message) {
     } else if (topic == "hit.hardware/visor") {
       Visor(mensaje);
     } else if (topic == "hit.hardware/cajon") {
+      let { arrayImprimir = [], options = {} } = mensaje || {};
       options.abrirCajon = true;
       setup.printerOptions.isUsbPrinter
         ? ImpresoraUSB(arrayImprimir, options)
