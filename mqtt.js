@@ -349,19 +349,54 @@ function imprimir(imprimirArray = [], device, options) {
             printer.cut();
           }
         }
+
+        // Envía el buffer troceado. Un solo envío puede desbordar el buffer de recepción
+        // de la impresora.
+        const escribirEnBloques = (buffer, callback, chunkSize = 4096) => {
+          if (buffer.length > chunkSize) {
+            logger.Info(
+              `Buffer de impresión (${buffer.length} bytes) supera el chunkSize (${chunkSize}); se enviará en ${Math.ceil(buffer.length / chunkSize)} bloques.`,
+            );
+          }
+          let offset = 0;
+          const siguienteBloque = () => {
+            if (offset >= buffer.length) return callback(null);
+            const bloque = buffer.subarray(offset, offset + chunkSize);
+            offset += bloque.length;
+            device.write(bloque, function (errWrite) {
+              if (errWrite) return callback(errWrite);
+              siguienteBloque();
+            });
+          };
+          if (buffer.length === 0) return callback(null);
+          siguienteBloque();
+        };
+
+        // Cierra la impresora esperando el envío real y comprobando su error, en vez
+        // de descartarlo como hace internamente Printer.prototype.close() de escpos.
+        const cerrarImpresora = () => {
+          const buf = printer.buffer.flush();
+          escribirEnBloques(buf, function (errWrite) {
+            if (errWrite) {
+              device.close(() => reject(errWrite));
+              return;
+            }
+            device.close(function (errClose) {
+              if (errClose) return reject(errClose);
+              resolve();
+            });
+          });
+        };
+
         if (qr) {
           printer.qrimage(qr.payload, { type: "png", size: 4 }, function (errQr) {
             if (errQr) return reject(errQr);
             this.text("\n\n\n");
             this.cut();
-            this.close();
-            resolve();
+            cerrarImpresora();
           });
         } else {
-          printer.close(function (errClose) {
-            if (errClose) return reject(errClose);
-            resolve();
-          });
+          cerrarImpresora();
         }
       } catch (error) {
         reject(error); // Captura errores en tiempo de ejecución de comandos
