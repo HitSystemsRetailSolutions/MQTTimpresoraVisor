@@ -352,20 +352,17 @@ function imprimir(imprimirArray = [], device, options) {
 
         // Envía el buffer troceado. Un solo envío puede desbordar el buffer de recepción
         // de la impresora.
-        const escribirEnBloques = (buffer, callback, chunkSize = 4096) => {
-          if (buffer.length > chunkSize) {
-            logger.Info(
-              `Buffer de impresión (${buffer.length} bytes) supera el chunkSize (${chunkSize}); se enviará en ${Math.ceil(buffer.length / chunkSize)} bloques.`,
-            );
-          }
+        const escribirEnBloques = (buffer, callback, chunkSize = 3072) => {
+          logger.Info("Buffer de impresión: " + buffer.length + " bytes");
           let offset = 0;
           const siguienteBloque = () => {
             if (offset >= buffer.length) return callback(null);
             const bloque = buffer.subarray(offset, offset + chunkSize);
+            logger.Info("Enviando bloque: " + bloque.length + " bytes");
             offset += bloque.length;
             device.write(bloque, function (errWrite) {
               if (errWrite) return callback(errWrite);
-              siguienteBloque();
+              setTimeout(siguienteBloque, 100);
             });
           };
           if (buffer.length === 0) return callback(null);
