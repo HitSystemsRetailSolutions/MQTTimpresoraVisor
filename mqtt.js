@@ -349,16 +349,51 @@ function imprimir(imprimirArray = [], device, options) {
             printer.cut();
           }
         }
+
+        // Envía el buffer troceado. Un solo envío puede desbordar el buffer de recepción
+        // de la impresora.
+        const escribirEnBloques = (buffer, callback, chunkSize = 3072) => {
+          logger.Info("Buffer de impresión: " + buffer.length + " bytes");
+          let offset = 0;
+          const siguienteBloque = () => {
+            if (offset >= buffer.length) return callback(null);
+            const bloque = buffer.subarray(offset, offset + chunkSize);
+            logger.Info("Enviando bloque: " + bloque.length + " bytes");
+            offset += bloque.length;
+            device.write(bloque, function (errWrite) {
+              if (errWrite) return callback(errWrite);
+              setTimeout(siguienteBloque, 100);
+            });
+          };
+          if (buffer.length === 0) return callback(null);
+          siguienteBloque();
+        };
+
+        // Cierra la impresora esperando el envío real y comprobando su error, en vez
+        // de descartarlo como hace internamente Printer.prototype.close() de escpos.
+        const cerrarImpresora = () => {
+          const buf = printer.buffer.flush();
+          escribirEnBloques(buf, function (errWrite) {
+            if (errWrite) {
+              device.close(() => reject(errWrite));
+              return;
+            }
+            device.close(function (errClose) {
+              if (errClose) return reject(errClose);
+              resolve();
+            });
+          });
+        };
+
         if (qr) {
           printer.qrimage(qr.payload, { type: "png", size: 4 }, function (errQr) {
             if (errQr) return reject(errQr);
             this.text("\n\n\n");
             this.cut();
-            this.close();
-            resolve();
+            cerrarImpresora();
           });
         } else {
-          printer.close(resolve);
+          cerrarImpresora();
         }
       } catch (error) {
         reject(error); // Captura errores en tiempo de ejecución de comandos
@@ -441,7 +476,8 @@ async function ImpresoraUSB(msg, options) {
     const tiempoEspera = calcularTiempoEsperaImpresion(msg);
     await new Promise((resolve) => setTimeout(resolve, tiempoEspera));
   } catch (error) {
-    logger.Error(`❗ Error en ImpresoraUSB: ${error.message}`);
+    const stackInfo = error?.stack ? `\nStack: ${error.stack}` : "";
+    logger.Error(`❗ Error en ImpresoraUSB [Tipo: ${options?.tipo || "sin tipo"}]: ${error.message}${stackInfo}`);
     usbDeviceInstance = undefined; // Vaciar la variable si falla la impresión
     throw error; // Re-lanzar para que sea capturado en mqttClient.on("message")
   } finally {
@@ -482,29 +518,29 @@ async function ImpresoraSerial(msg, options) {
     const tiempoEspera = calcularTiempoEsperaImpresion(msg);
     await new Promise((resolve) => setTimeout(resolve, tiempoEspera));
   } catch (error) {
-    logger.Error(`❗ Error en ImpresoraSerial: ${error.message}`);
+    const stackInfo = error?.stack ? `\nStack: ${error.stack}` : "";
+    logger.Error(`❗ Error en ImpresoraSerial [Tipo: ${options?.tipo || "sin tipo"}]: ${error.message}${stackInfo}`);
     throw error; // Re-lanzar para que sea capturado en mqttClient.on("message")
   } finally {
     serialPrinting = false;
   }
 }
 
-function ImpresoraIP(msg, options) {
+async function ImpresoraIP(msg, options) {
   try {
     if (!options.ip || !options.port) {
       return log("❗ Error: Faltan datos de IP o puerto en el mensaje.");
     }
     const device = new escpos.Network(options.ip, options.port);
 
-    imprimir(msg, device, options);
+    await imprimir(msg, device, options);
     const tiempoEspera = calcularTiempoEsperaImpresion(msg);
-    return new Promise((resolve) =>
-      setTimeout(() => {
-        resolve();
-      }, tiempoEspera),
-    );
+    await new Promise((resolve) => setTimeout(resolve, tiempoEspera));
   } catch (err) {
-    log(`❗ Error al imprimir por IP: ${err.message}`);
+    const stackInfo = err?.stack ? `\nStack: ${err.stack}` : "";
+    log(`❗ Error al imprimir por IP [${options.ip}:${options.port}]: ${err.message}${stackInfo}`);
+    logger.Error(`❗ Error al imprimir por IP [${options.ip}:${options.port}]: ${err.message}${stackInfo}`);
+    throw err;
   }
 }
 
@@ -581,7 +617,55 @@ function x() {
   process.exit();
 }
 
+function formatearDetallesError(e, topic, mensajeParsed, contextoActual = {}) {
+  const options = contextoActual.options || mensajeParsed?.options || (typeof mensajeParsed === "object" ? mensajeParsed : {});
+
+  const accion =
+    contextoActual.tipo ||
+    options?.tipo ||
+    options?.accion ||
+    mensajeParsed?.accion ||
+    mensajeParsed?.tipo ||
+    "Desconocida";
+
+  const numLineas =
+    contextoActual.numLineas ||
+    (Array.isArray(contextoActual.arrayImprimir) ? contextoActual.arrayImprimir.length : undefined) ||
+    (Array.isArray(options?.arrayImprimir) ? options.arrayImprimir.length : undefined) ||
+    (Array.isArray(mensajeParsed?.arrayImprimir) ? mensajeParsed.arrayImprimir.length : undefined) ||
+    "N/A";
+
+  const dispositivoInfo = setup?.printerOptions?.isUsbPrinter
+    ? (setup?.printerOptions?.useVidPid
+        ? `USB (VID: ${setup.printerOptions.vId}, PID: ${setup.printerOptions.pId})`
+        : `USB (Port: ${setup?.printerOptions?.port || "Auto"})`)
+    : (contextoActual.ip ? `IP (${contextoActual.ip}:${contextoActual.port})` : `Serial (${setup?.printerOptions?.port})`);
+
+  const opIndexInfo = contextoActual.opIndex ? ` [Op ${contextoActual.opIndex}/${contextoActual.totalOps}]` : "";
+
+  const stackLines = e?.stack ? e.stack.split("\n").map((l) => "  │ " + l).join("\n") : "  │ Sin stack trace disponible";
+
+  const detalles = [
+    `------------------------------------------------------------------`,
+    `❗ ERROR AL IMPRIMIR EN .on("message")${opIndexInfo}`,
+    `  ├─ Error Msg   : ${e?.message || e}`,
+    `  ├─ Topic MQTT  : ${topic}`,
+    `  ├─ Acción/Tipo : ${accion}`,
+    `  ├─ Dispositivo : ${dispositivoInfo}`,
+    `  ├─ Nº Líneas   : ${numLineas}`,
+    `  ├─ Opciones    : ${JSON.stringify(options)}`,
+    `  └─ Stack Trace :`,
+    stackLines,
+    `------------------------------------------------------------------`,
+  ].join("\n");
+
+  return detalles;
+}
+
 mqttClient.on("message", async function (topic, message) {
+  let mensajeParsed = null;
+  let contextoActual = {};
+
   try {
     if (topic == "hit.hardware/autoSetupPrinter") {
       console.log(">>", JSON.parse(message));
@@ -638,13 +722,35 @@ mqttClient.on("message", async function (topic, message) {
       });
     }
     let mensaje = Buffer.from(message, "binary").toString("utf8");
-    if (mensaje != "") if (topic != "hit.hardware/visor") mensaje = JSON.parse(mensaje);
+    if (mensaje != "") {
+      if (topic != "hit.hardware/visor") {
+        try {
+          mensajeParsed = JSON.parse(mensaje);
+        } catch (jsonErr) {
+          mensajeParsed = mensaje;
+        }
+      } else {
+        mensajeParsed = mensaje;
+      }
+    }
+
     if (topic == "hit.hardware/printer") {
       // nuevo formato en /printer para multiples mensajes y opciones
-      if (Array.isArray(mensaje?.operaciones)) {
-        for (const op of mensaje.operaciones) {
+      if (Array.isArray(mensajeParsed?.operaciones)) {
+        for (let i = 0; i < mensajeParsed.operaciones.length; i++) {
+          const op = mensajeParsed.operaciones[i];
           const { arrayImprimir = [], options = {} } = op || {};
-          logger.Info("1Imprimiendo en impresora...", options?.tipo || "sin tipo");
+          contextoActual = {
+            opIndex: i + 1,
+            totalOps: mensajeParsed.operaciones.length,
+            options,
+            arrayImprimir,
+            tipo: options?.tipo || op?.tipo,
+            posicion: options?.posicion || options?.posicionComanda || op?.posicion || op?.posicionComanda,
+            id: options?.id || options?.idTicket || options?.comanda || op?.id || op?.comanda,
+            numLineas: arrayImprimir.length,
+          };
+          logger.Info(`1Imprimiendo en impresora [${i + 1}/${mensajeParsed.operaciones.length}]...`, options?.tipo || "sin tipo");
 
           if (setup.printerOptions.isUsbPrinter) {
             await ImpresoraUSB(arrayImprimir, options);
@@ -655,7 +761,15 @@ mqttClient.on("message", async function (topic, message) {
         return;
       } else {
         // formato antiguo de una sola operacion
-        let { arrayImprimir = [], options = {} } = mensaje || {};
+        let { arrayImprimir = [], options = {} } = mensajeParsed || {};
+        contextoActual = {
+          options,
+          arrayImprimir,
+          tipo: options?.tipo || mensajeParsed?.tipo,
+          posicion: options?.posicion || options?.posicionComanda || mensajeParsed?.posicion || mensajeParsed?.posicionComanda,
+          id: options?.id || options?.idTicket || options?.comanda || mensajeParsed?.id || mensajeParsed?.comanda,
+          numLineas: arrayImprimir.length,
+        };
         logger.Info("2Imprimiendo en impresora...", options?.tipo || "sin tipo");
 
         if (setup.printerOptions.isUsbPrinter) {
@@ -666,15 +780,25 @@ mqttClient.on("message", async function (topic, message) {
         return;
       }
     } else if (topic == "hit.hardware/visor") {
-      Visor(mensaje);
+      Visor(mensajeParsed);
     } else if (topic == "hit.hardware/cajon") {
-      let { arrayImprimir = [], options = {} } = mensaje || {};
+      let { arrayImprimir = [], options = {} } = mensajeParsed || {};
       options.abrirCajon = true;
-      setup.printerOptions.isUsbPrinter
-        ? ImpresoraUSB(arrayImprimir, options)
-        : ImpresoraSerial(arrayImprimir, options);
+      contextoActual = {
+        options,
+        arrayImprimir,
+        tipo: "cajon",
+        posicion: options?.posicion || mensajeParsed?.posicion,
+        id: options?.id || mensajeParsed?.id,
+        numLineas: arrayImprimir.length,
+      };
+      if (setup.printerOptions.isUsbPrinter) {
+        await ImpresoraUSB(arrayImprimir, options);
+      } else {
+        await ImpresoraSerial(arrayImprimir, options);
+      }
     } else if (topic == "hit.hardware/logo") {
-      const buffer = Buffer.from(mensaje.logo, "hex");
+      const buffer = Buffer.from(mensajeParsed.logo, "hex");
       try {
         const fotico = await Jimp.read(buffer);
         // Redimensionar para impresora de 80mm: 512px de ancho óptimo
@@ -711,10 +835,22 @@ mqttClient.on("message", async function (topic, message) {
     } else if (topic.includes("hit.hardware/printerIP/")) {
       const ipPrinter = setup.comanderoPrinterOptions.printers.find((x) => "hit.hardware/printerIP/" + x.name == topic);
       if (ipPrinter) {
-        // Si mensaje contiene operaciones (array), iterar sobre ellas
-        if (Array.isArray(mensaje?.operaciones)) {
-          for (const op of mensaje.operaciones) {
-            const { arrayImprimir, options } = op;
+        if (Array.isArray(mensajeParsed?.operaciones)) {
+          for (let i = 0; i < mensajeParsed.operaciones.length; i++) {
+            const op = mensajeParsed.operaciones[i];
+            const { arrayImprimir = [], options = {} } = op || {};
+            contextoActual = {
+              opIndex: i + 1,
+              totalOps: mensajeParsed.operaciones.length,
+              options,
+              arrayImprimir,
+              ip: ipPrinter.ip,
+              port: ipPrinter.port,
+              tipo: options?.tipo || op?.tipo,
+              posicion: options?.posicion || options?.posicionComanda || op?.posicion,
+              id: options?.id || options?.comanda || op?.id,
+              numLineas: arrayImprimir.length,
+            };
             await ImpresoraIP(arrayImprimir, {
               ...options,
               ip: ipPrinter.ip,
@@ -722,8 +858,17 @@ mqttClient.on("message", async function (topic, message) {
             });
           }
         } else {
-          // Versión actual para un solo mensaje
-          const { arrayImprimir, options } = mensaje;
+          const { arrayImprimir = [], options = {} } = mensajeParsed || {};
+          contextoActual = {
+            options,
+            arrayImprimir,
+            ip: ipPrinter.ip,
+            port: ipPrinter.port,
+            tipo: options?.tipo || mensajeParsed?.tipo,
+            posicion: options?.posicion || mensajeParsed?.posicion,
+            id: options?.id || mensajeParsed?.id,
+            numLineas: arrayImprimir.length,
+          };
           await ImpresoraIP(arrayImprimir, {
             ...options,
             ip: ipPrinter.ip,
@@ -733,8 +878,8 @@ mqttClient.on("message", async function (topic, message) {
       }
     }
   } catch (e) {
-    logger.Error(`❗ Error al imprimir en .on "message" : ${e.message}`);
-
-    log("Error en MQTT: \n" + e + " > > " + topic + " > > " + message);
+    const errorDetallado = formatearDetallesError(e, topic, mensajeParsed, contextoActual);
+    logger.Error(errorDetallado);
+    log(errorDetallado);
   }
 });
