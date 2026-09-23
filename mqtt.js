@@ -220,6 +220,7 @@ function testPrinter() {
   } else {
     const serialDevice = new escpos.Serial(setup.printerOptions.port, {
       baudRate: setup.printerOptions.rate,
+      autoOpen: false,
     });
     imprimir(
       [
@@ -512,6 +513,7 @@ async function ImpresoraSerial(msg, options) {
   serialPrinting = true;
   const serialDevice = new escpos.Serial(setup.printerOptions.port, {
     baudRate: setup.printerOptions.rate,
+    autoOpen: false,
   });
   try {
     await imprimir(msg, serialDevice, options);
@@ -593,6 +595,7 @@ function autoSetupPrinter(x) {
   } else {
     const serialDevice = new escpos.Serial("/dev/" + data.value, {
       baudRate: data.rate,
+      autoOpen: false,
     });
     imprimir(
       [
